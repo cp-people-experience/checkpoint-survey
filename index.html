@@ -211,8 +211,36 @@ img{max-width:100%}
 .chart-card .ch-sub{font-size:11px;color:var(--text3);margin-bottom:12px}
 .chart-wrap{position:relative;height:230px}
 .chart-card.wide{grid-column:1/-1}
-.empty{text-align:center;padding:50px 20px;color:var(--text3);font-size:13px}
-.empty .em{font-size:36px;display:block;margin-bottom:8px}
+.empty{text-align:center;padding:54px 24px;color:var(--text3);font-size:13px}
+.empty .em{font-size:40px;display:block;margin-bottom:10px;opacity:.8}
+.empty h4{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px}
+.empty p{max-width:420px;margin:0 auto 16px;line-height:1.6}
+
+/* compact hero on the dashboard */
+body.hr-mode .hero{padding:2px 20px 14px}
+body.hr-mode .hero h1{font-size:17px}
+body.hr-mode .hero p{font-size:11.5px;opacity:.82}
+body.hr-mode .hdr-in{padding:11px 20px}
+
+/* table toolbar + sortable headers */
+.tbl-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.tbl-search{flex:1;min-width:180px;max-width:320px;position:relative}
+.tbl-search input{width:100%;padding:8px 11px 8px 30px;font:inherit;font-size:12.5px;border:1px solid var(--border2);border-radius:20px;background:var(--card);color:var(--text)}
+.tbl-search input:focus{outline:none;border-color:var(--cp);box-shadow:0 0 0 3px var(--cp-l)}
+.tbl-search .mag{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text3);pointer-events:none}
+.tbl-meta{font-size:11.5px;color:var(--text3);font-weight:600}
+table.data th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+table.data th.sortable:hover{color:var(--cp)}
+table.data th .arw{opacity:.35;margin-left:3px;font-size:9px}
+table.data th.sorted{color:var(--cp)}
+table.data th.sorted .arw{opacity:1}
+table.data td.num{font-variant-numeric:tabular-nums}
+
+/* loading */
+.loading{display:flex;align-items:center;justify-content:center;gap:10px;padding:60px 20px;color:var(--text3);font-size:13px}
+.spin{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--cp);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.stale{opacity:.45;transition:opacity .2s}
 
 /* likert breakdown bars */
 .lk-list{display:flex;flex-direction:column;gap:14px}
@@ -833,6 +861,7 @@ function setRole(r){
   document.getElementById("tgHr").classList.toggle("on",r==="hr");
   document.getElementById("empView").classList.toggle("on",r==="emp");
   document.getElementById("hrView").classList.toggle("on",r==="hr");
+  document.body.classList.toggle("hr-mode",r==="hr");   // compact header on the dashboard
   if(r==="emp"){document.getElementById("heroTitle").textContent="Onboarding & Exit Experience";
     document.getElementById("heroSub").textContent="Your feedback helps us improve the experience for every new team member — from day one to their last day.";}
   else{document.getElementById("heroTitle").textContent="HR Experience Dashboard";
@@ -1004,9 +1033,14 @@ function gateInit(){
 async function checkPass(){
   const btn=document.getElementById("gateBtn");
   const openDash=async()=>{
-    if(CLOUD){ try{ await loadCloud(); }catch(e){ toast("Could not load responses: "+(e.message||"check RLS policies")); throw e; } }
     document.getElementById("hrGate").style.display="none";
     document.getElementById("hrDash").style.display="block";
+    const ov=document.getElementById("tab-overview");
+    if(ov)ov.innerHTML=`<div class="card loading"><span class="spin"></span> Loading responses…</div>`;
+    if(CLOUD){ try{ await loadCloud(); }catch(e){
+      document.getElementById("hrGate").style.display="block";
+      document.getElementById("hrDash").style.display="none";
+      toast("Could not load responses: "+(e.message||"check RLS policies")); throw e; } }
     initFilters();renderDash();
   };
   try{
@@ -1624,14 +1658,34 @@ function renderOpenText(rows,key){
   h+=`</div></div>`;return h;
 }
 
+let RESP_Q="", RESP_SORT={col:"submittedAt",dir:-1};
+function respScore(r){return r.surveyType==="exit"?(r.answers.nps!=null?r.answers.nps:null)
+  :(r.answers.enps!=null?r.answers.enps:(r.answers.overallStars!=null?r.answers.overallStars*2:null));}
+function respSearch(v){RESP_Q=v;renderResponses(filtered());}
+function respSort(col){if(RESP_SORT.col===col)RESP_SORT.dir*=-1;else RESP_SORT={col,dir:col==="submittedAt"?-1:1};renderResponses(filtered());}
 function renderResponses(data){
   const el=document.getElementById("tab-responses");
   if(!data.length){el.innerHTML=emptyState();return;}
-  const sorted=data.slice().sort((a,b)=>b.submittedAt-a.submittedAt);
-  let h=`<div class="ch-sub" style="margin:-4px 0 12px">🔒 Responses are confidential — visible only to signed-in HR. Click a row to see the full answers.</div>
-    <div class="tbl-wrap"><table class="data"><thead><tr>
-    <th>Employee</th><th>Survey</th><th>Department</th><th>Country</th><th>Key score</th><th>Submitted</th></tr></thead><tbody>`;
-  sorted.forEach((r,i)=>{
+  const q=RESP_Q.trim().toLowerCase();
+  let rows=data.filter(r=>!q||[r.employeeName,r.employeeEmail,r.department,r.country,SURVEYS[r.surveyType].short]
+    .some(v=>String(v||"").toLowerCase().includes(q)));
+  const {col,dir}=RESP_SORT;
+  const val=r=>col==="employee"?(r.employeeName||"").toLowerCase():col==="survey"?SURVEYS[r.surveyType].short
+    :col==="score"?(respScore(r)==null?-1:respScore(r)):col==="submittedAt"?r.submittedAt:String(r[col]||"").toLowerCase();
+  rows=rows.slice().sort((a,b)=>{const x=val(a),y=val(b);return (x<y?-1:x>y?1:0)*dir;});
+  const th=(id,label)=>`<th class="sortable ${col===id?"sorted":""}" onclick="respSort('${id}')">${label}<span class="arw">${col===id?(dir>0?"▲":"▼"):"↕"}</span></th>`;
+  let h=`<div class="tbl-bar">
+      <div class="tbl-search"><span class="mag">🔍</span>
+        <input placeholder="Search name, email, department…" value="${esc(RESP_Q)}" oninput="respSearch(this.value)"></div>
+      <span class="tbl-meta">${rows.length} of ${data.length} response${data.length===1?"":"s"}</span>
+      <div style="flex:1"></div>
+      <span class="tbl-meta" style="font-weight:500">🔒 Visible only to signed-in HR · click a row for full answers</span>
+    </div>`;
+  if(!rows.length){h+=`<div class="card empty"><span class="em">🔍</span><h4>No matches</h4><p>Nothing matches “${esc(RESP_Q)}”. Try a different search term.</p><button class="btn btn-ghost btn-sm" onclick="respSearch('')">Clear search</button></div>`;el.innerHTML=h;return;}
+  h+=`<div class="tbl-wrap"><table class="data"><thead><tr>
+    ${th("employee","Employee")}${th("survey","Survey")}${th("department","Department")}${th("country","Country")}${th("score","Key score")}${th("submittedAt","Submitted")}
+    </tr></thead><tbody>`;
+  rows.forEach(r=>{
     const s=SURVEYS[r.surveyType];const pillCls=r.surveyType==="onb30"?"d30":r.surveyType==="onb90"?"d60":"exit";
     const score=r.surveyType==="exit"?(r.answers.nps!=null?r.answers.nps+"/10 NPS":"—"):(r.answers.enps!=null?r.answers.enps+"/10 eNPS":(r.answers.overallStars!=null?r.answers.overallStars+"/5 ★":"—"));
     const d=new Date(r.submittedAt);
@@ -1639,8 +1693,8 @@ function renderResponses(data){
       <td><b>${esc(r.employeeName||"—")}</b><br><span style="color:var(--text3);font-size:11px">${esc(r.employeeEmail||"")}</span></td>
       <td><span class="pill ${pillCls}">${s.short}</span></td>
       <td>${esc(r.department)}</td><td>${esc(r.country)}</td>
-      <td class="score-chip">${score}</td>
-      <td>${d.toLocaleDateString()}<br><span style="color:var(--text3);font-size:11px">${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></td></tr>`;
+      <td class="score-chip num">${score}</td>
+      <td class="num">${d.toLocaleDateString()}<br><span style="color:var(--text3);font-size:11px">${d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span></td></tr>`;
   });
   h+=`</tbody></table></div>`;
   el.innerHTML=h;
@@ -1755,7 +1809,17 @@ function radarOpts(){return {responsive:true,maintainAspectRatio:false,animation
    ============================================================ */
 function shortDept(d){return d.replace("Human Resources","HR").replace(" / IT","").replace("Product Management","Product").replace("Customer Support","Support");}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function emptyState(what){return `<div class="card empty"><span class="em">📭</span>No ${what||'survey'} responses match the current filters.</div>`;}
+function emptyState(what){
+  const anyData=loadAll().length>0;
+  if(anyData) return `<div class="card empty"><span class="em">🔎</span>
+    <h4>No ${what||"survey"} responses match your filters</h4>
+    <p>There ${loadAll().length===1?"is":"are"} ${loadAll().length} response${loadAll().length===1?"":"s"} in total, but none fit the current department, country and period.</p>
+    <button class="btn btn-ghost btn-sm" onclick="resetFilters()">Reset filters</button></div>`;
+  return `<div class="card empty"><span class="em">📭</span>
+    <h4>No responses yet</h4>
+    <p>Once employees complete a survey, their answers appear here automatically — with charts, trends and comments.</p>
+    <button class="btn btn-primary btn-sm" onclick="setTab('share')">Get the survey links &amp; QR codes →</button></div>`;
+}
 let toastT;function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("on"),2600);}
 
 /* ============================================================
