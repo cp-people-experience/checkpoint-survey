@@ -125,7 +125,9 @@ img{max-width:100%}
 .scale-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:6px}
 
 /* text + select (consistent form controls) */
-.q textarea,.q select.fld{width:100%;max-width:420px;padding:11px 13px;font-family:inherit;font-size:14px;font-weight:400;line-height:1.4;border:1px solid var(--border2);border-radius:var(--rs);background:var(--card);color:var(--text)}
+.q textarea,.q select.fld,.q input.single{width:100%;max-width:420px;padding:11px 13px;font-family:inherit;font-size:14px;font-weight:400;line-height:1.4;border:1px solid var(--border2);border-radius:var(--rs);background:var(--card);color:var(--text)}
+.q input.single{display:block}
+.q input.single:focus{outline:none;border-color:var(--cp);box-shadow:0 0 0 3px var(--cp-l)}
 .q textarea{resize:vertical;min-height:80px;display:block}
 .q select.fld{display:block;-webkit-appearance:none;appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a827c' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
@@ -151,6 +153,10 @@ img{max-width:100%}
 .btn-ghost:hover{background:var(--card2)}
 .btn-sm{padding:8px 14px;font-size:12px}
 .anon-note{background:var(--ok-bg);border:1px solid rgba(46,125,50,.25);color:var(--ok);border-radius:var(--rs);padding:9px 13px;font-size:12.5px;font-weight:500;line-height:1.4}
+/* survey welcome message (first page only) */
+.svy-intro{background:linear-gradient(135deg,var(--cp-l),var(--card));border:1px solid var(--border);border-left:4px solid var(--cp);border-radius:var(--r);padding:18px 20px;margin-bottom:14px}
+.svy-intro h3{font-size:15px;font-weight:800;color:var(--cp);margin-bottom:7px;line-height:1.35}
+.svy-intro p{font-size:13px;color:var(--text2);line-height:1.6}
 .progress{height:6px;background:var(--border);border-radius:6px;overflow:hidden;margin-bottom:16px}
 .progress .bar{height:100%;background:var(--cp);transition:.3s;border-radius:6px}
 .prog-txt{font-size:11.5px;color:var(--text3);margin-bottom:14px;font-weight:600}
@@ -334,7 +340,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
 
     <!-- survey form -->
     <div id="empSurvey" class="narrow" style="display:none">
-      <div class="anon-note">🔒 This survey is <b>anonymous</b> — your name and email are not collected or recorded.</div>
+      <div class="anon-note">🔒 Your responses are <b>confidential</b> and shared only with the HR team to improve the employee experience.</div>
       <div style="margin:12px 0 14px"><div id="svyName" style="font-size:15px;font-weight:800"></div></div>
       <div class="progress"><div class="bar" id="progBar" style="width:0%"></div></div>
       <div class="prog-txt" id="progTxt"></div>
@@ -437,11 +443,19 @@ const LIKERT_VAL = {0:7,1:6,2:5,3:4,4:3,5:2,6:1};
 const drop = (id,label,opts,req=true)=>({id,type:"dropdown",label,options:opts,required:req});
 const matrix=(id,label,stmts,req=true,note="",scale=null)=>({id,type:"likert",label,statements:stmts,required:req,note,scale});
 const txt=(id,label,req=false)=>({id,type:"text",label,required:req});
+const inp=(id,label,req=true,inputType="text",ph="")=>({id,type:"input",label,required:req,inputType,ph});
 const S=(t,reverse=false)=>({t,reverse});
+
+// Identity questions shown at the top of every survey's first page
+const identityQs=()=>[
+  inp("empName","Your full name",true,"text","e.g. Taro Yamada"),
+  inp("empEmail","Your work email",true,"email","name@checkpoint.com"),
+];
 
 // The onboarding question set (shared by 30-day and 60-day; DAY token is replaced)
 function onboardingSections(DAY){return [
  {tag:"Personal & Employment Details",questions:[
+   ...identityQs(),
    drop("dept","What is your department?",DEPTS),
    drop("country","Please select your country:",COUNTRIES),
  ]},
@@ -516,6 +530,7 @@ function onboardingSections(DAY){return [
 // ---- 90-Day onboarding survey (satisfaction-based) ----
 function onb90Sections(){return [
  {tag:"Personal & Employment Details",questions:[
+   ...identityQs(),
    drop("dept","What is your department?",DEPTS),
    drop("country","Please select your country:",COUNTRIES),
  ]},
@@ -578,6 +593,7 @@ const LEAVE=["Compensation / Benefits","Working environment","Career prospects",
 
 function exitSections(){return [
  {tag:"Personal & Employment Details",questions:[
+   ...identityQs(),
    drop("dept","What is your department?",DEPTS),
    drop("country","Please select your country:",COUNTRIES),
  ]},
@@ -603,11 +619,20 @@ function exitSections(){return [
 
 const SURVEYS={
   onb30:{key:"onb30",name:"30-Day Onboarding Survey",short:"30-Day Onboarding",icon:"🚀",iconBg:"var(--cp-l)",iconColor:"var(--cp)",
-    desc:"Share your experience after your first 30 days at Check Point.",sections:onboardingSections(30)},
+    desc:"Share your experience after your first 30 days at Check Point.",
+    introTitle:"🎉 HURRAY! You've Completed Your First 30 Days with Check Point! 🎉",
+    introBody:"We're thrilled to have you on board and hope your journey so far has been exciting, insightful, and empowering. Now that you've hit your 30-day milestone, we'd love to hear your thoughts! Your feedback will help us improve the onboarding experience for future hires and ensure every new team member feels supported from day one. Let's get started! 🚀",
+    sections:onboardingSections(30)},
   onb90:{key:"onb90",name:"90-Day Onboarding Survey",short:"90-Day Onboarding",icon:"📈",iconBg:"var(--pur-bg)",iconColor:"var(--pur)",
-    desc:"You've reached your 90-day milestone — tell us how it's going.",sections:onb90Sections()},
-  exit:{key:"exit",name:"Employee Exit Survey",short:"Exit Survey",icon:"👋",iconBg:"var(--warn-bg)",iconColor:"var(--warn)",
-    desc:"Help us understand your journey as you move on from Check Point.",sections:exitSections()},
+    desc:"You've reached your 90-day milestone — tell us how it's going.",
+    introTitle:"🎉 HURRAY! You've Completed 90 Days with Check Point! 🎉",
+    introBody:"We're so glad to have you on board! Now that you've reached your 90-day milestone, we'd love to hear how your experience has been so far — what's working well, what could be better, and how we can continue to support you. Your feedback helps us improve the onboarding journey for future team members and ensure you're set up for success.",
+    sections:onb90Sections()},
+  exit:{key:"exit",name:"Employee Exit Survey 2026",short:"Exit Survey",icon:"👋",iconBg:"var(--warn-bg)",iconColor:"var(--warn)",
+    desc:"Help us understand your journey as you move on from Check Point.",
+    introTitle:"👋 Thank you for being part of Check Point.",
+    introBody:"As you move on to your next chapter, we'd value your honest feedback about your time with us. Your responses help us understand what we do well and where we can improve — for the colleagues who remain, and for those who join in future. We wish you all the best in your next role.",
+    sections:exitSections()},
 };
 
 /* ============================================================
@@ -640,13 +665,14 @@ async function addResponse(r){
   if(CLOUD){
     const {error}=await sb.from("survey_responses").insert({
       survey_type:r.surveyType,department:r.department,country:r.country,
+      employee_name:r.employeeName,employee_email:r.employeeEmail,
       answers:r.answers,submitted_at:new Date(r.submittedAt).toISOString()
     });
     if(error)throw error;
     CACHE.push(r);
   } else { const a=readLocal();a.push(r);saveAll(a); }
 }
-function rowToResp(row){return {id:row.id,surveyType:row.survey_type,department:row.department,country:row.country,submittedAt:new Date(row.submitted_at).getTime(),answers:row.answers||{}};}
+function rowToResp(row){return {id:row.id,surveyType:row.survey_type,department:row.department,country:row.country,employeeName:row.employee_name||"—",employeeEmail:row.employee_email||"—",submittedAt:new Date(row.submitted_at).getTime(),answers:row.answers||{}};}
 async function loadCloud(){
   const {data,error}=await sb.from("survey_responses").select("*").order("submitted_at",{ascending:false});
   if(error)throw error;
@@ -659,7 +685,8 @@ async function loadCloud(){
 function seedIfEmpty(){
   if(CLOUD)return;                       // never seed fake data into the real database
   if(localStorage.getItem("cp_seeded_v2"))return;
-  const N=24; // anonymous demo respondents
+  const NAMES=["Aiko Tanaka","Ben Cohen","Chen Wei","David Levi","Emma Brown","Farah Khan","Grace Kim","Hiro Yamada","Ines Roy","Jonas Weber","Kavya Nair","Liam O'Neil","Maya Shapiro","Noah Fisher","Olivia Chen","Priya Das","Quinn Silva","Rina Sato","Sam Green","Tara Mizrahi","Uma Patel","Victor Hugo","Wendy Lin","Yuki Mori"];
+  const N=NAMES.length; // demo respondents
   const rnd=(a)=>a[Math.floor(Math.random()*a.length)];
   const rInt=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
   const now=Date.now();const out=[];
@@ -679,17 +706,18 @@ function seedIfEmpty(){
       else if(q.type==="scale")ans[q.id]=mood>0.7?rInt(7,10):mood>0.4?rInt(5,8):rInt(2,6);
       else if(q.type==="text"){if(q.required||Math.random()>0.55)ans[q.id]=rnd(pool);}
     }));
-    ans.dept=emp.dept;ans.country=emp.country;return ans;
+    ans.dept=emp.dept;ans.country=emp.country;ans.empName=emp.name;ans.empEmail=emp.email;return ans;
   }
+  const mkRow=(idx,key,emp,mood,daysAgo)=>({id:"seed-"+idx+"-"+key,surveyType:key,
+    department:emp.dept,country:emp.country,employeeName:emp.name,employeeEmail:emp.email,
+    submittedAt:now-daysAgo*86400000,answers:fillSurvey(key,emp,mood)});
   for(let idx=0;idx<N;idx++){
-    const emp={dept:rnd(DEPTS),country:rnd(COUNTRIES)};
+    const nm=NAMES[idx];
+    const emp={name:nm,email:nm.toLowerCase().replace(/[^a-z]+/g,".")+"@checkpoint.com",dept:rnd(DEPTS),country:rnd(COUNTRIES)};
     const mood=Math.random();
-    // 30-day for most
-    out.push({id:"seed-"+idx+"-30",surveyType:"onb30",department:emp.dept,country:emp.country,submittedAt:now-rInt(20,170)*86400000,answers:fillSurvey("onb30",emp,mood)});
-    // 90-day for some
-    if(Math.random()>0.4)out.push({id:"seed-"+idx+"-90",surveyType:"onb90",department:emp.dept,country:emp.country,submittedAt:now-rInt(5,60)*86400000,answers:fillSurvey("onb90",emp,Math.min(1,mood+0.1))});
-    // exit for a few
-    if(Math.random()>0.72)out.push({id:"seed-"+idx+"-x",surveyType:"exit",department:emp.dept,country:emp.country,submittedAt:now-rInt(1,120)*86400000,answers:fillSurvey("exit",emp,Math.random())});
+    out.push(mkRow(idx,"onb30",emp,mood,rInt(20,170)));                                   // 30-day for most
+    if(Math.random()>0.4)out.push(mkRow(idx,"onb90",emp,Math.min(1,mood+0.1),rInt(5,60))); // 90-day for some
+    if(Math.random()>0.72)out.push(mkRow(idx,"exit",emp,Math.random(),rInt(1,120)));       // exit for a few
   }
   saveAll(out);
   localStorage.setItem("cp_seeded_v2","1");
@@ -734,7 +762,10 @@ function renderSection(){
   document.getElementById("progBar").style.width=((curSection)/(total)*100)+"%";
   document.getElementById("progTxt").textContent=`Section ${curSection+1} of ${total} — ${sec.tag}`;
   const body=document.getElementById("svyBody");
-  let h=`<div class="card section"><div class="sec-tag">${sec.tag}</div>`;
+  // welcome message — first page only
+  let h = curSection===0 && s.introTitle
+    ? `<div class="svy-intro"><h3>${s.introTitle}</h3><p>${s.introBody}</p></div>` : "";
+  h+=`<div class="card section"><div class="sec-tag">${sec.tag}</div>`;
   sec.questions.forEach((q,qi)=>{h+=renderQuestion(q);});
   h+=`</div>`;
   body.innerHTML=h;
@@ -780,6 +811,8 @@ function renderQuestion(q){
     }
   } else if(q.type==="text"){
     h+=`<textarea data-qid="${q.id}" placeholder="Enter your answer" oninput="setAns('${q.id}',this.value)">${curAnswers[q.id]||''}</textarea>`;
+  } else if(q.type==="input"){
+    h+=`<input class="fld single" data-qid="${q.id}" type="${q.inputType||'text'}" placeholder="${q.ph||'Enter your answer'}" value="${esc(curAnswers[q.id]||'')}" oninput="setAns('${q.id}',this.value)">`;
   }
   h+=`<div class="err-msg">This question is required.</div></div>`;
   return h;
@@ -802,8 +835,11 @@ function validateSection(){
     if(q.type==="likert"){filled=a&&q.statements.every((s,i)=>a[i]!==undefined);}
     else if(q.type==="rank"){filled=a&&a[0];}
     else if(q.type==="stars"||q.type==="nps"||q.type==="scale"){filled=a!==undefined&&a!==null&&a!=="";}
+    else if(q.type==="input"&&q.inputType==="email"){filled=!!a&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(a).trim());}
     else{filled=a!==undefined&&a!==null&&String(a).trim()!=="";}
-    if(!filled){ok=false;const w=document.getElementById("qw_"+q.id);if(w)w.classList.add("invalid");if(!firstBad)firstBad=w;}
+    if(!filled){ok=false;const w=document.getElementById("qw_"+q.id);if(w){w.classList.add("invalid");
+      const em=w.querySelector(".err-msg");if(em)em.textContent=(q.type==="input"&&q.inputType==="email")?"Please enter a valid email address.":"This question is required.";}
+      if(!firstBad)firstBad=w;}
   });
   if(firstBad)firstBad.scrollIntoView({behavior:"smooth",block:"center"});
   return ok;
@@ -821,6 +857,8 @@ async function submitSurvey(){
     id:"r-"+Date.now()+"-"+Math.floor(Math.random()*9999),
     surveyType:curSurveyKey,
     department:curAnswers.dept||"—",country:curAnswers.country||"—",
+    employeeName:(curAnswers.empName||"").trim()||"—",
+    employeeEmail:(curAnswers.empEmail||"").trim()||"—",
     submittedAt:Date.now(),answers:{...curAnswers}
   };
   const btn=document.getElementById("btnNext");
@@ -832,8 +870,8 @@ async function submitSurvey(){
   document.getElementById("empSurvey").style.display="none";
   document.getElementById("empThanks").style.display="block";
   document.getElementById("thMsg").textContent=curSurveyKey==="exit"
-    ?"Thank you for sharing your honest, anonymous feedback. We wish you all the best in your next chapter. 💙"
-    :"Your anonymous responses have been recorded. They help us make onboarding better for everyone who joins after you.";
+    ?"Thank you for sharing your honest feedback. We wish you all the best in your next chapter. 💙"
+    :"Your responses have been recorded. They help us make onboarding better for everyone who joins after you.";
   document.getElementById("progBar").style.width="100%";
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -938,7 +976,7 @@ function renderShare(){
   const isLocal=/localhost|127\.0\.0\.1|^file:/.test(base);
   let h=`<div class="card chart-card" style="margin-bottom:14px">
     <h3>Distribution links &amp; QR codes</h3>
-    <div class="ch-sub">Share these with employees. Every link opens only that one survey — the HR admin area is hidden, and no name or email is collected (fully anonymous).</div>
+    <div class="ch-sub">Share these with employees. Every link opens only that one survey — the HR admin area is hidden. Each response records the employee's name and email.</div>
     <div class="field" style="margin-top:14px;max-width:560px"><label>Base URL (where the app is published)</label>
       <input id="shareBaseInput" value="${esc(base)}" oninput="shareBase=this.value" onchange="renderShare()"></div>
     ${isLocal?`<div class="ch-sub" style="margin-top:8px;color:var(--warn)">⚠ This is a local address — a phone scanning the QR won't reach it. Publish the file (internal web server, SharePoint, Netlify, etc.), paste that address above, and the links &amp; QR codes below update automatically.</div>`:``}
@@ -1237,15 +1275,15 @@ function renderResponses(data){
   const el=document.getElementById("tab-responses");
   if(!data.length){el.innerHTML=emptyState();return;}
   const sorted=data.slice().sort((a,b)=>b.submittedAt-a.submittedAt);
-  let h=`<div class="ch-sub" style="margin:-4px 0 12px">🔒 Responses are anonymous — no employee identity is stored. Click a row to see the full answers.</div>
+  let h=`<div class="ch-sub" style="margin:-4px 0 12px">🔒 Responses are confidential — visible only to signed-in HR. Click a row to see the full answers.</div>
     <div class="tbl-wrap"><table class="data"><thead><tr>
-    <th>Ref</th><th>Survey</th><th>Department</th><th>Country</th><th>Key score</th><th>Submitted</th></tr></thead><tbody>`;
+    <th>Employee</th><th>Survey</th><th>Department</th><th>Country</th><th>Key score</th><th>Submitted</th></tr></thead><tbody>`;
   sorted.forEach((r,i)=>{
     const s=SURVEYS[r.surveyType];const pillCls=r.surveyType==="onb30"?"d30":r.surveyType==="onb90"?"d60":"exit";
-    const score=r.surveyType==="exit"?(r.answers.nps!=null?r.answers.nps+"/10 NPS":"—"):(r.answers.enps!=null?r.answers.enps+"/10 eNPS":"—");
-    const d=new Date(r.submittedAt);const ref="#"+String(sorted.length-i).padStart(4,"0");
+    const score=r.surveyType==="exit"?(r.answers.nps!=null?r.answers.nps+"/10 NPS":"—"):(r.answers.enps!=null?r.answers.enps+"/10 eNPS":(r.answers.overallStars!=null?r.answers.overallStars+"/5 ★":"—"));
+    const d=new Date(r.submittedAt);
     h+=`<tr class="clk" onclick="viewMyResponse('${r.id}')">
-      <td><b>${ref}</b></td>
+      <td><b>${esc(r.employeeName||"—")}</b><br><span style="color:var(--text3);font-size:11px">${esc(r.employeeEmail||"")}</span></td>
       <td><span class="pill ${pillCls}">${s.short}</span></td>
       <td>${esc(r.department)}</td><td>${esc(r.country)}</td>
       <td class="score-chip">${score}</td>
@@ -1276,10 +1314,10 @@ async function hrSignOut(){ if(CLOUD&&HR_REQUIRES_LOGIN&&sb){try{await sb.auth.s
 
 /* flatten a response into a tabular row */
 function flattenRow(r){
-  const s=SURVEYS[r.surveyType];const row={Survey:s.name,Department:r.department,Country:r.country,Submitted:new Date(r.submittedAt).toLocaleString()};
+  const s=SURVEYS[r.surveyType];const row={Employee:r.employeeName||"",Email:r.employeeEmail||"",Survey:s.name,Department:r.department,Country:r.country,Submitted:new Date(r.submittedAt).toLocaleString()};
   s.sections.forEach(sec=>sec.questions.forEach(q=>{
     const a=r.answers[q.id];
-    if(q.type==="dropdown")return;
+    if(q.type==="dropdown"||q.type==="input")return; // identity already in the leading columns
     if(q.type==="likert"){const SC=q.scale||LIKERT;q.statements.forEach((st,i)=>{row[trunc(st.t)]=a&&a[i]!==undefined?SC[7-a[i]]:"";});}
     else if(q.type==="rank"){(a||[]).forEach((o,i)=>row[trunc(q.label)+" #"+(i+1)]=o||"");}
     else if(q.type==="stars")row[trunc(q.label)]=a!=null?a+"/5":"";
@@ -1305,8 +1343,8 @@ function clearData(){if(confirm("Delete ALL responses stored in this browser? Th
    ============================================================ */
 function openResponseModal(r,forPrint){
   const s=SURVEYS[r.surveyType];
-  document.getElementById("mTitle").textContent=s.name+" — anonymous response";
-  let h=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${esc(r.department)} · ${esc(r.country)} · ${new Date(r.submittedAt).toLocaleString()}</div>`;
+  document.getElementById("mTitle").textContent=s.name+" — "+(r.employeeName||"—");
+  let h=`<div style="font-size:12px;color:var(--text3);margin-bottom:14px">${esc(r.employeeEmail||"")} · ${esc(r.department)} · ${esc(r.country)} · ${new Date(r.submittedAt).toLocaleString()}</div>`;
   s.sections.forEach(sec=>{
     let inner="";
     sec.questions.forEach(q=>{const a=r.answers[q.id];
@@ -1368,8 +1406,8 @@ gateInit();
   // reflect connection status in the footer
   const fn=document.querySelector(".footer-note");
   if(fn)fn.innerHTML = CLOUD
-    ? `Check Point — People Experience • <b style="color:var(--ok)">● Connected</b> — responses are saved to your shared database.<br>Responses are anonymous and confidential.`
-    : `Check Point — People Experience • <b style="color:var(--warn)">● Demo mode</b> — data is stored only in this browser. Connect Supabase to collect responses centrally.<br>Responses are anonymous and confidential.`;
+    ? `Check Point — People Experience • <b style="color:var(--ok)">● Connected</b> — responses are saved to your shared database.<br>Responses are confidential and used only to improve the employee experience.`
+    : `Check Point — People Experience • <b style="color:var(--warn)">● Demo mode</b> — data is stored only in this browser. Connect Supabase to collect responses centrally.<br>Responses are confidential and used only to improve the employee experience.`;
 })();
 </script>
 </body>
