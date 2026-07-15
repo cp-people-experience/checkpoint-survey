@@ -377,7 +377,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
       <div class="admin-tabs">
         <button class="admin-tab on" data-tab="overview" onclick="setTab('overview')">Overview</button>
         <button class="admin-tab" data-tab="onb30" onclick="setTab('onb30')">30-Day Onboarding</button>
-        <button class="admin-tab" data-tab="onb60" onclick="setTab('onb60')">60-Day Onboarding</button>
+        <button class="admin-tab" data-tab="onb90" onclick="setTab('onb90')">90-Day Onboarding</button>
         <button class="admin-tab" data-tab="exit" onclick="setTab('exit')">Exit Survey</button>
         <button class="admin-tab" data-tab="responses" onclick="setTab('responses')">Responses</button>
         <button class="admin-tab" data-tab="share" onclick="setTab('share')">Share &amp; QR</button>
@@ -397,7 +397,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
 
       <div id="tab-overview" class="tabpane"></div>
       <div id="tab-onb30" class="tabpane" style="display:none"></div>
-      <div id="tab-onb60" class="tabpane" style="display:none"></div>
+      <div id="tab-onb90" class="tabpane" style="display:none"></div>
       <div id="tab-exit" class="tabpane" style="display:none"></div>
       <div id="tab-responses" class="tabpane" style="display:none"></div>
       <div id="tab-share" class="tabpane" style="display:none"></div>
@@ -428,12 +428,14 @@ table.data tr.clk:hover td{background:var(--cp-l)}
 const DEPTS = ["Products - R&D","MIS","Global Purchasing Operations","Human Resources","APAC Sales","Security Service Edge","Marketing","Strategic Partnership and Field Enablement","Strategic Sales","Cloud Security","Finance","Customer Experience","Customer Success","External Risk Management","Global Accounts","Global Operation Organization","Harmony Email Security","Learning & Training","Inside Sales and Renewals","Infinity Global Services","Logistics","Sales Admin","TAC","WW Partner Ecosystem","Other"];
 const COUNTRIES = ["Philippines","Vietnam","Indonesia","Thailand","Malaysia","Korea","Singapore","China","Hongkong","Taiwan","Japan","Australia","New Zealand","India"];
 const LIKERT = ["Strongly agree","Agree","Somewhat agree","Neutral","Somewhat disagree","Disagree","Strongly disagree"];
-// value 7 (strongly agree) .. 1 (strongly disagree)
+// Satisfaction scale (used by the 90-day survey)
+const SATIS  = ["Extremely Satisfied","Satisfied","Somewhat Satisfied","Neutral","Somewhat Dissatisfied","Dissatisfied","Not Satisfied at All"];
+// value 7 (most favourable) .. 1 (least favourable) — same mapping for both scales
 const LIKERT_VAL = {0:7,1:6,2:5,3:4,4:3,5:2,6:1};
 
 // helper builders
 const drop = (id,label,opts,req=true)=>({id,type:"dropdown",label,options:opts,required:req});
-const matrix=(id,label,stmts,req=true,note="")=>({id,type:"likert",label,statements:stmts,required:req,note});
+const matrix=(id,label,stmts,req=true,note="",scale=null)=>({id,type:"likert",label,statements:stmts,required:req,note,scale});
 const txt=(id,label,req=false)=>({id,type:"text",label,required:req});
 const S=(t,reverse=false)=>({t,reverse});
 
@@ -511,6 +513,66 @@ function onboardingSections(DAY){return [
  ]},
 ];}
 
+// ---- 90-Day onboarding survey (satisfaction-based) ----
+function onb90Sections(){return [
+ {tag:"Personal & Employment Details",questions:[
+   drop("dept","What is your department?",DEPTS),
+   drop("country","Please select your country:",COUNTRIES),
+ ]},
+ {tag:"MIS (IT Support)",questions:[
+   matrix("mis","How satisfied are you with the following statements:",[
+     S("MIS resolution time to IT issues"),
+     S("MIS problem resolution to IT issues/Quality of IT Support"),
+   ],true,"",SATIS),
+   txt("itExpect","How long are you expecting IT to respond?",true),
+ ]},
+ {tag:"Finance: Commissions / Payroll / Claims / RSU / ESPP",questions:[
+   matrix("finSales","Please rate your level of satisfaction:",[
+     S("Support provided by the Finance team."),
+   ],false,"Only for Sales Role",SATIS),
+   matrix("finAll","How satisfied are you with the following statements:",[
+     S("Payroll resolution time to payroll enquiries and matters"),
+     S("Accessibility & Clarity of payroll information"),
+     S("Claims resolution time to expense enquiries and matters."),
+     S("Claims resolution time to expense related issues."),
+     S("Accessibility & Clarity of claims information."),
+     S("Accessibility & Clarity of RSU/ESPP information."),
+     S("RSU/ESPP resolution time to RSU/ESPP related issues."),
+     S("RSU/ESPP resolution time to related enquiries and matters."),
+   ],true,"",SATIS),
+   txt("finConcern","If you have any concerns about commissions, payroll, claims or RSU/ESPP, please share them."),
+ ]},
+ {tag:"System: Time Off / Nexonia Policy",questions:[
+   matrix("timeoff","How satisfied are you with the following statements:",[
+     S("Clarity of time-off policies"),
+     S("Ease of applying for leave"),
+     S("Clarity of expense policy"),
+     S("Ease of submission of claims"),
+   ],true,"",SATIS),
+   txt("timeoffConcern","If you have any concerns about Time Off/Nexonia, please share them."),
+ ]},
+ {tag:"HR Support & Communication",questions:[
+   matrix("hr","How strongly do you agree or disagree with the following statements:",[
+     S("The HR is responsive and helpful during my onboarding process since I started work."),
+     S("I received clear communication from HR regarding policies, benefits, and next steps."),
+   ]),
+   txt("hrBetter","Is there anything HR could have done better to support your onboarding experience?"),
+ ]},
+ {tag:"Overall Experience",questions:[
+   {id:"overallStars",type:"stars",label:"How would you rate your overall 90-day onboarding experience so far?",required:true,note:"1 = Poor, 5 = Excellent"},
+   matrix("overall","How satisfied are you with the following statements:",[
+     S("The support I received from my team."),
+     S("The alignment between my expectations and actual experience."),
+     S("The clarity of my role and responsibilities."),
+   ],true,"",SATIS),
+ ]},
+ {tag:"Final Thoughts / Self-Feeling",questions:[
+   txt("highlight","What has been the highlight of your first 90 days?",true),
+   txt("challenges","What challenges have you faced?",true),
+   txt("suggest","Any suggestions to improve the onboarding experience?",true),
+ ]},
+];}
+
 const ATTRACT=["Job scope","Compensation / Benefits","Working environment","Career Prospects","Not Applicable"];
 const LEAVE=["Compensation / Benefits","Working environment","Career prospects","Recognition","Performance","Personal","Not Applicable"];
 
@@ -542,8 +604,8 @@ function exitSections(){return [
 const SURVEYS={
   onb30:{key:"onb30",name:"30-Day Onboarding Survey",short:"30-Day Onboarding",icon:"🚀",iconBg:"var(--cp-l)",iconColor:"var(--cp)",
     desc:"Share your experience after your first 30 days at Check Point.",sections:onboardingSections(30)},
-  onb60:{key:"onb60",name:"60-Day Onboarding Survey",short:"60-Day Onboarding",icon:"📈",iconBg:"var(--pur-bg)",iconColor:"var(--pur)",
-    desc:"A check-in on how you're settling in after 60 days.",sections:onboardingSections(60)},
+  onb90:{key:"onb90",name:"90-Day Onboarding Survey",short:"90-Day Onboarding",icon:"📈",iconBg:"var(--pur-bg)",iconColor:"var(--pur)",
+    desc:"You've reached your 90-day milestone — tell us how it's going.",sections:onb90Sections()},
   exit:{key:"exit",name:"Employee Exit Survey",short:"Exit Survey",icon:"👋",iconBg:"var(--warn-bg)",iconColor:"var(--warn)",
     desc:"Help us understand your journey as you move on from Check Point.",sections:exitSections()},
 };
@@ -603,26 +665,19 @@ function seedIfEmpty(){
   const now=Date.now();const out=[];
   // bias: mostly positive with some variation
   const likVal=(good)=>{const r=Math.random();if(good>0.75)return rnd([7,7,7,6,6,5]);if(good>0.5)return rnd([7,6,6,5,5,4]);if(good>0.3)return rnd([6,5,4,4,3]);return rnd([5,4,3,2,2,1]);};
-  function fillOnb(day,emp,mood){
-    const secs=onboardingSections(day);const ans={};
-    secs.forEach(sec=>sec.questions.forEach(q=>{
+  const ONB_TXT=["The team was very welcoming.","Setup took a bit long but resolved.","Clear documentation helped a lot.","My manager set clear expectations.","Onboarding buddy program was great.","Some tools access was delayed.","Everything went smoothly overall."];
+  const EXIT_TXT=["Wished for more growth opportunities.","Compensation could be more competitive.","Great people, hard to leave.","Career prospects elsewhere.","Better work-life balance needed.","Relocating for personal reasons.","More recognition would help retention."];
+  // generic filler — works for any survey definition
+  function fillSurvey(key,emp,mood){
+    const ans={};const pool=key==="exit"?EXIT_TXT:ONB_TXT;
+    SURVEYS[key].sections.forEach(sec=>sec.questions.forEach(q=>{
       if(q.type==="dropdown")return; // set below
       if(q.type==="likert"){ans[q.id]={};q.statements.forEach((s,i)=>{let v=likVal(mood);if(s.reverse)v=8-v;ans[q.id][i]=v;});}
       else if(q.type==="stars")ans[q.id]=rInt(mood>0.6?3:2,5);
+      else if(q.type==="rank"){const p=[...q.options.filter(o=>o!=="Not Applicable")];ans[q.id]=[];for(let i=0;i<3;i++){ans[q.id].push(p.splice(Math.floor(Math.random()*p.length),1)[0]||"");}}
       else if(q.type==="nps")ans[q.id]=mood>0.7?rInt(8,10):mood>0.4?rInt(6,9):rInt(3,7);
       else if(q.type==="scale")ans[q.id]=mood>0.7?rInt(7,10):mood>0.4?rInt(5,8):rInt(2,6);
-      else if(q.type==="text"){if(q.required||Math.random()>0.55)ans[q.id]=rnd(["The team was very welcoming.","Setup took a bit long but resolved.","Clear documentation helped a lot.","My manager set clear expectations.","Onboarding buddy program was great.","Some tools access was delayed.","Everything went smoothly overall."]);}
-    }));
-    ans.dept=emp.dept;ans.country=emp.country;return ans;
-  }
-  function fillExit(emp,mood){
-    const secs=exitSections();const ans={};
-    secs.forEach(sec=>sec.questions.forEach(q=>{
-      if(q.type==="dropdown")return;
-      if(q.type==="likert"){ans[q.id]={};q.statements.forEach((s,i)=>{let v=likVal(mood);if(s.reverse)v=8-v;ans[q.id][i]=v;});}
-      else if(q.type==="rank"){const pool=[...q.options.filter(o=>o!=="Not Applicable")];ans[q.id]=[];for(let i=0;i<3;i++){const p=pool.splice(Math.floor(Math.random()*pool.length),1)[0];ans[q.id].push(p||"");}}
-      else if(q.type==="nps")ans[q.id]=mood>0.6?rInt(6,10):rInt(2,7);
-      else if(q.type==="text")ans[q.id]=rnd(["Wished for more growth opportunities.","Compensation could be more competitive.","Great people, hard to leave.","Career prospects elsewhere.","Better work-life balance needed.","Relocating for personal reasons.","More recognition would help retention."]);
+      else if(q.type==="text"){if(q.required||Math.random()>0.55)ans[q.id]=rnd(pool);}
     }));
     ans.dept=emp.dept;ans.country=emp.country;return ans;
   }
@@ -630,11 +685,11 @@ function seedIfEmpty(){
     const emp={dept:rnd(DEPTS),country:rnd(COUNTRIES)};
     const mood=Math.random();
     // 30-day for most
-    out.push({id:"seed-"+idx+"-30",surveyType:"onb30",department:emp.dept,country:emp.country,submittedAt:now-rInt(20,170)*86400000,answers:fillOnb(30,emp,mood)});
-    // 60-day for some
-    if(Math.random()>0.4)out.push({id:"seed-"+idx+"-60",surveyType:"onb60",department:emp.dept,country:emp.country,submittedAt:now-rInt(5,60)*86400000,answers:fillOnb(60,emp,Math.min(1,mood+0.1))});
+    out.push({id:"seed-"+idx+"-30",surveyType:"onb30",department:emp.dept,country:emp.country,submittedAt:now-rInt(20,170)*86400000,answers:fillSurvey("onb30",emp,mood)});
+    // 90-day for some
+    if(Math.random()>0.4)out.push({id:"seed-"+idx+"-90",surveyType:"onb90",department:emp.dept,country:emp.country,submittedAt:now-rInt(5,60)*86400000,answers:fillSurvey("onb90",emp,Math.min(1,mood+0.1))});
     // exit for a few
-    if(Math.random()>0.72)out.push({id:"seed-"+idx+"-x",surveyType:"exit",department:emp.dept,country:emp.country,submittedAt:now-rInt(1,120)*86400000,answers:fillExit(emp,Math.random())});
+    if(Math.random()>0.72)out.push({id:"seed-"+idx+"-x",surveyType:"exit",department:emp.dept,country:emp.country,submittedAt:now-rInt(1,120)*86400000,answers:fillSurvey("exit",emp,Math.random())});
   }
   saveAll(out);
   localStorage.setItem("cp_seeded_v2","1");
@@ -700,11 +755,12 @@ function renderQuestion(q){
     h+=`<select class="fld" data-qid="${q.id}" onchange="setAns('${q.id}',this.value)"><option value="">Select your answer</option>`;
     q.options.forEach(o=>h+=`<option ${curAnswers[q.id]===o?'selected':''}>${o}</option>`);h+=`</select>`;
   } else if(q.type==="likert"){
+    const SC=q.scale||LIKERT;
     h+=`<div class="likert-scroll"><table class="likert"><thead><tr><th></th>`;
-    LIKERT.forEach(l=>h+=`<th>${l}</th>`);h+=`</tr></thead><tbody>`;
+    SC.forEach(l=>h+=`<th>${l}</th>`);h+=`</tr></thead><tbody>`;
     q.statements.forEach((s,i)=>{
       h+=`<tr><td class="stmt">"${s.t}"${s.reverse?'<span class="rv">reverse</span>':''}</td>`;
-      LIKERT.forEach((l,li)=>{const cur=curAnswers[q.id]&&curAnswers[q.id][i];
+      SC.forEach((l,li)=>{const cur=curAnswers[q.id]&&curAnswers[q.id][i];
         h+=`<td><input type="radio" class="radio" name="${q.id}_${i}" ${cur===LIKERT_VAL[li]?'checked':''} onclick="setMatrix('${q.id}',${i},${LIKERT_VAL[li]})"></td>`;});
       h+=`</tr>`;});
     h+=`</tbody></table></div>`;
@@ -862,7 +918,7 @@ function renderDash(){
   const data=filtered();
   if(curTab==="overview")renderOverview(data);
   else if(curTab==="onb30")renderSurveyTab(data,"onb30","tab-onb30");
-  else if(curTab==="onb60")renderSurveyTab(data,"onb60","tab-onb60");
+  else if(curTab==="onb90")renderSurveyTab(data,"onb90","tab-onb90");
   else if(curTab==="exit")renderExitTab(data);
   else if(curTab==="responses")renderResponses(data);
   else if(curTab==="share")renderShare();
@@ -876,7 +932,7 @@ function renderShare(){
   const mk=(q)=>base+(base.indexOf("?")>=0?"&":"?")+q;
   const links=[
     {key:"onb30",icon:"🚀",title:"30-Day Onboarding — direct link",desc:"Opens the 30-day survey only. Best for scheduled 30-day check-ins.",url:mk("s=onb30")},
-    {key:"onb60",icon:"📈",title:"60-Day Onboarding — direct link",desc:"Opens the 60-day survey only. Best for scheduled 60-day check-ins.",url:mk("s=onb60")},
+    {key:"onb90",icon:"📈",title:"90-Day Onboarding — direct link",desc:"Opens the 90-day survey only. Best for scheduled 90-day check-ins.",url:mk("s=onb90")},
     {key:"exit",icon:"👋",title:"Exit Survey — direct link",desc:"Opens the exit survey only. Send to departing employees.",url:mk("s=exit")},
   ];
   const isLocal=/localhost|127\.0\.0\.1|^file:/.test(base);
@@ -924,24 +980,42 @@ function ovHead(t,sub){return `<div class="ov-head"><span class="tick"></span><h
 function deltaChip(d,unit,goodUp=true){if(d==null||isNaN(d))return '<span class="delta flat">n/a</span>';const cls=d>0?(goodUp?'up':'down'):d<0?(goodUp?'down':'up'):'flat';const arrow=d>0?'▲ ':d<0?'▼ ':'– ';return `<span class="delta ${cls}">${arrow}${d>0?'+':''}${d}${unit||''}</span>`;}
 function npsCls(v){return v==null?'':v>=30?'good':v>=0?'mid':'bad';}
 function npsComp(vals){const p=vals.filter(v=>v>=9).length,d=vals.filter(v=>v<=6).length;return {p,pa:vals.length-p-d,d,n:vals.length};}
-function onbFav(rows){const out=[];SURVEYS.onb30.sections.forEach(sec=>sec.questions.filter(q=>q.type==="likert").forEach(q=>{
-  q.statements.forEach((st,i)=>{const vals=[];rows.forEach(r=>{const a=r.answers[q.id];if(a&&a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});
-    if(vals.length)out.push({t:st.t,theme:sec.tag,pct:(avg(vals)-1)/6*100,n:vals.length});});}));
-  return out.sort((a,b)=>b.pct-a.pct);}
+// Per-statement favourability across BOTH onboarding surveys (they have different question sets).
+function onbFav(rows){
+  const acc={};
+  ["onb30","onb90"].forEach(key=>{
+    const rs=rows.filter(r=>r.surveyType===key);
+    if(!rs.length)return;
+    SURVEYS[key].sections.forEach(sec=>sec.questions.filter(q=>q.type==="likert").forEach(q=>{
+      q.statements.forEach((st,i)=>{
+        rs.forEach(r=>{const a=r.answers[q.id];
+          if(a&&a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;
+            if(!acc[st.t])acc[st.t]={sum:0,n:0,theme:sec.tag};
+            acc[st.t].sum+=v;acc[st.t].n++;}});
+      });
+    }));
+  });
+  return Object.keys(acc).map(t=>({t,theme:acc[t].theme,pct:(acc[t].sum/acc[t].n-1)/6*100,n:acc[t].n})).sort((a,b)=>b.pct-a.pct);
+}
 function overallFavPct(rows){const s=onbFav(rows);return s.length?avg(s.map(x=>x.pct)):null;}
 function monthKey(ts){const d=new Date(ts);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");}
 function fmtMonth(k){const p=k.split("-");return ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+p[1]-1]+" '"+p[0].slice(2);}
 function monthSeries(data){const last=[...new Set(data.map(r=>monthKey(r.submittedAt)))].sort().slice(-8);
   const mk=(t)=>last.map(k=>data.filter(r=>r.surveyType===t&&monthKey(r.submittedAt)===k).length);
-  return {labels:last.map(fmtMonth),o30:mk("onb30"),o60:mk("onb60"),ex:mk("exit")};}
+  return {labels:last.map(fmtMonth),o30:mk("onb30"),o90:mk("onb90"),ex:mk("exit")};}
 function countryChartData(rows){return COUNTRIES.map(c=>[c,rows.filter(r=>r.country===c).length]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);}
 function qLabel(k,id){const q=SURVEYS[k].sections.flatMap(s=>s.questions).find(x=>x.id===id);return q?q.label:id;}
 function attentionComments(data){const out=[];
-  data.filter(r=>r.surveyType!=="exit").forEach(r=>{const sc=r.answers.enps;if(sc==null||sc>6)return;
-    ["stress","suggest","hrBetter","finConcern","misIssues"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:sc,survey:SURVEYS[r.surveyType].short,dept:r.department,q:qLabel(r.surveyType,id),text:v});});});
+  // 30-day: detractors by eNPS (0–6)
+  data.filter(r=>r.surveyType==="onb30").forEach(r=>{const sc=r.answers.enps;if(sc==null||sc>6)return;
+    ["stress","suggest","hrBetter","finConcern","misIssues"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:sc+"/10",sort:sc,survey:"30-Day",dept:r.department,q:qLabel("onb30",id),text:v});});});
+  // 90-day: no eNPS — flag low overall star rating (1–2 of 5)
+  data.filter(r=>r.surveyType==="onb90").forEach(r=>{const st=r.answers.overallStars;if(st==null||st>2)return;
+    ["challenges","suggest","hrBetter","finConcern","timeoffConcern"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:st+"/5★",sort:st*2,survey:"90-Day",dept:r.department,q:qLabel("onb90",id),text:v});});});
+  // exit: detractors by NPS
   data.filter(r=>r.surveyType==="exit").forEach(r=>{const sc=r.answers.nps;if(sc==null||sc>6)return;
-    ["raise","improve"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:sc,survey:"Exit",dept:r.department,q:qLabel("exit",id),text:v});});});
-  return out.sort((a,b)=>a.score-b.score).slice(0,8);}
+    ["raise","improve"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:sc+"/10",sort:sc,survey:"Exit",dept:r.department,q:qLabel("exit",id),text:v});});});
+  return out.sort((a,b)=>a.sort-b.sort).slice(0,8);}
 function stackedBarOpts(){return {...baseOpts(),plugins:{legend:{display:true,position:"bottom",labels:{color:axisColor(),font:{size:11},boxWidth:12,padding:10}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:axisColor(),font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}}}};}
 function stackedHBarOpts(){return {...baseOpts(),indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{stacked:true,beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}},y:{stacked:true,grid:{display:false},ticks:{color:axisColor(),font:{size:11}}}}};}
 
@@ -949,39 +1023,34 @@ function renderOverview(data){
   const el=document.getElementById("tab-overview");
   if(!data.length){el.innerHTML=emptyState();return;}
   const cpOrange="#D6410F",pur="#6d28d9",warn="#b45309",green="#2e7d32",red="#c62828",gray="#9ca3af";
-  const o30=data.filter(r=>r.surveyType==="onb30"),o60=data.filter(r=>r.surveyType==="onb60"),ex=data.filter(r=>r.surveyType==="exit");
-  const onb=[...o30,...o60];
-  const enps30=npsScore(o30.map(r=>r.answers.enps).filter(v=>v!=null));
-  const enps60=npsScore(o60.map(r=>r.answers.enps).filter(v=>v!=null));
-  const enpsOnb=npsScore(onb.map(r=>r.answers.enps).filter(v=>v!=null));
-  const eng30=avg(o30.map(r=>r.answers.engage).filter(v=>v!=null));
-  const eng60=avg(o60.map(r=>r.answers.engage).filter(v=>v!=null));
-  const engAvg=avg(onb.map(r=>r.answers.engage).filter(v=>v!=null));
+  const o30=data.filter(r=>r.surveyType==="onb30"),o90=data.filter(r=>r.surveyType==="onb90"),ex=data.filter(r=>r.surveyType==="exit");
+  const onb=[...o30,...o90];
+  const enps30=npsScore(o30.map(r=>r.answers.enps).filter(v=>v!=null));   // 30-day only (90-day has no eNPS)
+  const eng30=avg(o30.map(r=>r.answers.engage).filter(v=>v!=null));       // 30-day only
+  const stars90=avg(o90.map(r=>r.answers.overallStars).filter(v=>v!=null)); // 90-day headline metric
   const exitNps=npsScore(ex.map(r=>r.answers.nps).filter(v=>v!=null));
-  const favOnb=overallFavPct(onb),fav30=overallFavPct(o30),fav60=overallFavPct(o60);
-  const enpsDelta=(enps30!=null&&enps60!=null)?enps60-enps30:null;
-  const engDelta=(eng30!=null&&eng60!=null)?+(eng60-eng30).toFixed(1):null;
-  const favDelta=(fav30!=null&&fav60!=null)?Math.round(fav60-fav30):null;
+  const favOnb=overallFavPct(onb),fav30=overallFavPct(o30),fav90=overallFavPct(o90);
+  const favDelta=(fav30!=null&&fav90!=null)?Math.round(fav90-fav30):null;
   const stats=onbFav(onb);const top=stats[0],low=stats[stats.length-1];
 
   // ---- KPI strip ----
   let h=ovHead("At a glance","All selected responses");
   h+=`<div class="kpis">
-    ${kpi2("📋","var(--cp-l)","Total responses",data.length,`${o30.length} 30-day · ${o60.length} 60-day · ${ex.length} exit`)}
-    ${kpi2("🤝","var(--blue-bg)","Onboarding eNPS",enpsOnb==null?"—":(enpsOnb>0?"+"+enpsOnb:enpsOnb),`30→60 ${deltaChip(enpsDelta," pts")}`,npsCls(enpsOnb))}
-    ${kpi2("⚡","var(--pur-bg)","Avg engagement",engAvg==null?"—":engAvg.toFixed(1)+"/10",`30→60 ${deltaChip(engDelta,"")}`,engAvg==null?"":scoreClass(engAvg*10))}
-    ${kpi2("👍","var(--ok-bg)","Overall favourability",favOnb==null?"—":favOnb.toFixed(0)+"%",`${stats.length} onboarding statements`,favOnb==null?"":scoreClass(favOnb))}
+    ${kpi2("📋","var(--cp-l)","Total responses",data.length,`${o30.length} 30-day · ${o90.length} 90-day · ${ex.length} exit`)}
+    ${kpi2("🤝","var(--blue-bg)","30-Day eNPS",enps30==null?"—":(enps30>0?"+"+enps30:enps30),`Recommend after 30 days`,npsCls(enps30))}
+    ${kpi2("⭐","var(--pur-bg)","90-Day rating",stars90==null?"—":stars90.toFixed(1)+"/5",`Overall 90-day experience`,stars90==null?"":scoreClass(stars90*20))}
+    ${kpi2("👍","var(--ok-bg)","Overall favourability",favOnb==null?"—":favOnb.toFixed(0)+"%",`30→90 ${deltaChip(favDelta," pts")}`,favOnb==null?"":scoreClass(favOnb))}
     ${kpi2("👋","var(--warn-bg)","Exit eNPS",exitNps==null?"—":(exitNps>0?"+"+exitNps:exitNps),`${ex.length} departures`,npsCls(exitNps))}
   </div>`;
 
   // ---- Auto insights ----
   h+=ovHead("Key insights","Automatically generated from the data");
   const trendClass=favDelta==null?"info":favDelta>=0?"good":"warn";
-  const trendTxt=favDelta==null?`Not enough paired 30-day and 60-day data yet to compare how sentiment evolves.`
-    :favDelta>=0?`Sentiment <b>improves as people settle in</b> — 60-day favourability is <b>${favDelta} pts higher</b> than at 30 days (${fav30.toFixed(0)}% → ${fav60.toFixed(0)}%).`
-    :`Sentiment <b>dips between day 30 and 60</b> — favourability falls <b>${Math.abs(favDelta)} pts</b> (${fav30.toFixed(0)}% → ${fav60.toFixed(0)}%). Worth a closer look.`;
+  const trendTxt=favDelta==null?`Not enough paired 30-day and 90-day data yet to compare how sentiment evolves.`
+    :favDelta>=0?`Sentiment <b>improves as people settle in</b> — 90-day favourability is <b>${favDelta} pts higher</b> than at 30 days (${fav30.toFixed(0)}% → ${fav90.toFixed(0)}%).`
+    :`Sentiment <b>dips between day 30 and 90</b> — favourability falls <b>${Math.abs(favDelta)} pts</b> (${fav30.toFixed(0)}% → ${fav90.toFixed(0)}%). Worth a closer look.`;
   h+=`<div class="insights">
-    <div class="card insight ${trendClass}"><div class="i-ic">${favDelta>=0?"📈":favDelta==null?"🧭":"📉"}</div><div><div class="i-ttl">30 → 60 day trend</div><div class="i-txt">${trendTxt}</div></div></div>
+    <div class="card insight ${trendClass}"><div class="i-ic">${favDelta>=0?"📈":favDelta==null?"🧭":"📉"}</div><div><div class="i-ttl">30 → 90 day trend</div><div class="i-txt">${trendTxt}</div></div></div>
     <div class="card insight good"><div class="i-ic">💪</div><div><div class="i-ttl">Top strength</div><div class="i-txt">${top?`<b>${top.theme}</b> — "${esc(top.t)}" is the highest-rated item at <b>${top.pct.toFixed(0)}%</b> favourable.`:"—"}</div></div></div>
     <div class="card insight warn"><div class="i-ic">⚠️</div><div><div class="i-ttl">Needs attention</div><div class="i-txt">${low?`<b>${low.theme}</b> — "${esc(low.t)}" is the lowest-rated item at <b>${low.pct.toFixed(0)}%</b> favourable.`:"—"}</div></div></div>
   </div>`;
@@ -989,11 +1058,11 @@ function renderOverview(data){
   // ---- Charts ----
   h+=ovHead("Trends &amp; distribution");
   h+=`<div class="charts">
-    <div class="card chart-card"><h3>eNPS composition</h3><div class="ch-sub">Promoters vs passives vs detractors</div><div class="chart-wrap"><canvas id="cComp"></canvas></div>
+    <div class="card chart-card"><h3>eNPS composition</h3><div class="ch-sub">Promoters vs passives vs detractors (30-day &amp; exit)</div><div class="chart-wrap"><canvas id="cComp"></canvas></div>
       <div class="legend"><span><i style="background:${green}"></i>Promoters (9–10)</span><span><i style="background:${gray}"></i>Passives (7–8)</span><span><i style="background:${red}"></i>Detractors (0–6)</span></div></div>
-    <div class="card chart-card"><h3>Engagement distribution</h3><div class="ch-sub">Self-rated engagement (0–10), onboarding cohort</div><div class="chart-wrap"><canvas id="cEng"></canvas></div></div>
+    <div class="card chart-card"><h3>Engagement distribution</h3><div class="ch-sub">Self-rated engagement (0–10), 30-day cohort</div><div class="chart-wrap"><canvas id="cEng"></canvas></div></div>
     <div class="card chart-card wide"><h3>Response volume over time</h3><div class="ch-sub">Submissions per month by survey</div><div class="chart-wrap"><canvas id="cTime"></canvas></div></div>
-    <div class="card chart-card wide"><h3>30-Day vs 60-Day sentiment</h3><div class="ch-sub">Avg favourability % on shared onboarding themes</div><div class="chart-wrap"><canvas id="cTrend"></canvas></div></div>
+    <div class="card chart-card wide"><h3>30-Day vs 90-Day sentiment</h3><div class="ch-sub">Avg favourability % on themes covered by both surveys</div><div class="chart-wrap"><canvas id="cTrend"></canvas></div></div>
     <div class="card chart-card"><h3>Survey mix</h3><div class="ch-sub">Share of responses by type</div><div class="chart-wrap"><canvas id="cType"></canvas></div></div>
     <div class="card chart-card"><h3>Responses by country</h3><div class="ch-sub">Where responses come from</div><div class="chart-wrap" style="height:${deptWrapH2(countryChartData(data).length)}"><canvas id="cCountry"></canvas></div></div>
     <div class="card chart-card wide"><h3>Responses by department</h3><div class="ch-sub">Across all surveys</div><div class="chart-wrap" style="height:${deptWrapH(data)}"><canvas id="cDept"></canvas></div></div>
@@ -1012,16 +1081,16 @@ function renderOverview(data){
   // ---- Voice of employee ----
   const attn=attentionComments(data);
   if(attn.length){
-    h+=ovHead("Voice of the employee","Open-text comments from detractors (score ≤ 6)");
+    h+=ovHead("Voice of the employee","Comments from the least-satisfied respondents");
     h+=`<div class="card chart-card"><div class="attn-list">`;
-    attn.forEach(a=>{h+=`<div class="attn"><div class="a-score">${a.score}/10</div><div class="a-body"><div class="a-meta">${a.survey} · ${esc(a.dept)} · ${esc(a.q)}</div><div class="a-txt">"${esc(a.text)}"</div></div></div>`;});
+    attn.forEach(a=>{h+=`<div class="attn"><div class="a-score">${a.score}</div><div class="a-body"><div class="a-meta">${a.survey} · ${esc(a.dept)} · ${esc(a.q)}</div><div class="a-txt">"${esc(a.text)}"</div></div></div>`;});
     h+=`</div></div>`;
   }
 
   el.innerHTML=h;
 
   // ---- build charts ----
-  const compCats=[["30-Day",o30.map(r=>r.answers.enps)],["60-Day",o60.map(r=>r.answers.enps)],["Exit",ex.map(r=>r.answers.nps)]]
+  const compCats=[["30-Day",o30.map(r=>r.answers.enps)],["Exit",ex.map(r=>r.answers.nps)]]
     .map(x=>[x[0],npsComp(x[1].filter(v=>v!=null))]).filter(x=>x[1].n>0);
   charts.cComp=new Chart(cComp,{type:"bar",data:{labels:compCats.map(x=>x[0]),datasets:[
     {label:"Promoters",data:compCats.map(x=>x[1].p),backgroundColor:green,borderRadius:4,stack:"s"},
@@ -1029,26 +1098,27 @@ function renderOverview(data){
     {label:"Detractors",data:compCats.map(x=>x[1].d),backgroundColor:red,borderRadius:4,stack:"s"},
   ]},options:stackedHBarOpts()});
 
-  const engBuckets=Array(11).fill(0);onb.forEach(r=>{if(r.answers.engage!=null)engBuckets[r.answers.engage]++;});
+  const engBuckets=Array(11).fill(0);o30.forEach(r=>{if(r.answers.engage!=null)engBuckets[r.answers.engage]++;});
   charts.cEng=new Chart(cEng,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{data:engBuckets,backgroundColor:engBuckets.map((_,i)=>i>=7?green:i>=4?warn:red),borderRadius:5}]},options:barOpts()});
 
   const ms=monthSeries(data);
   charts.cTime=new Chart(cTime,{type:"bar",data:{labels:ms.labels,datasets:[
     {label:"30-Day",data:ms.o30,backgroundColor:cpOrange,borderRadius:4,stack:"m"},
-    {label:"60-Day",data:ms.o60,backgroundColor:pur,borderRadius:4,stack:"m"},
+    {label:"90-Day",data:ms.o90,backgroundColor:pur,borderRadius:4,stack:"m"},
     {label:"Exit",data:ms.ex,backgroundColor:warn,borderRadius:4,stack:"m"},
   ]},options:stackedBarOpts()});
 
-  const themes=[["bg","Bkgd Check"],["mis","IT Setup"],["finAll","Finance"],["timeoff","Time Off"],["hr","HR Support"],["self","Self-feeling"]];
-  const fav=(rows,qid)=>{const s=SURVEYS.onb30.sections.flatMap(x=>x.questions).find(q=>q.id===qid);if(!s)return null;
-    const vals=[];rows.forEach(r=>{const a=r.answers[qid];if(a)s.statements.forEach((st,i)=>{if(a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
+  // themes covered by BOTH the 30-day and 90-day surveys (each uses its own statement set)
+  const themes=[["mis","IT Support"],["finAll","Finance"],["timeoff","Time Off"],["hr","HR Support"]];
+  const favBy=(rows,key,qid)=>{const q=SURVEYS[key].sections.flatMap(x=>x.questions).find(x=>x.id===qid);if(!q||!q.statements)return null;
+    const vals=[];rows.forEach(r=>{const a=r.answers[qid];if(a)q.statements.forEach((st,i)=>{if(a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
     return vals.length?((avg(vals)-1)/6*100):null;};
   charts.cTrend=new Chart(cTrend,{type:"radar",data:{labels:themes.map(t=>t[1]),datasets:[
-    {label:"30-Day",data:themes.map(t=>fav(o30,t[0])),borderColor:cpOrange,backgroundColor:"rgba(214,65,15,.15)",borderWidth:2,pointBackgroundColor:cpOrange},
-    {label:"60-Day",data:themes.map(t=>fav(o60,t[0])),borderColor:pur,backgroundColor:"rgba(109,40,217,.15)",borderWidth:2,pointBackgroundColor:pur},
+    {label:"30-Day",data:themes.map(t=>favBy(o30,"onb30",t[0])),borderColor:cpOrange,backgroundColor:"rgba(214,65,15,.15)",borderWidth:2,pointBackgroundColor:cpOrange},
+    {label:"90-Day",data:themes.map(t=>favBy(o90,"onb90",t[0])),borderColor:pur,backgroundColor:"rgba(109,40,217,.15)",borderWidth:2,pointBackgroundColor:pur},
   ]},options:radarOpts()});
 
-  charts.cType=new Chart(cType,{type:"doughnut",data:{labels:["30-Day","60-Day","Exit"],datasets:[{data:[o30.length,o60.length,ex.length],backgroundColor:[cpOrange,pur,warn],borderWidth:0}]},options:doughnutOpts()});
+  charts.cType=new Chart(cType,{type:"doughnut",data:{labels:["30-Day","90-Day","Exit"],datasets:[{data:[o30.length,o90.length,ex.length],backgroundColor:[cpOrange,pur,warn],borderWidth:0}]},options:doughnutOpts()});
 
   const cc=countryChartData(data);
   charts.cCountry=new Chart(cCountry,{type:"bar",data:{labels:cc.map(x=>x[0]),datasets:[{data:cc.map(x=>x[1]),backgroundColor:"#1d4ed8",borderRadius:5}]},options:hbarOpts()});
@@ -1061,17 +1131,22 @@ function renderSurveyTab(data,key,elId){
   const el=document.getElementById(elId);
   const rows=data.filter(r=>r.surveyType===key);
   if(!rows.length){el.innerHTML=emptyState(SURVEYS[key].name);return;}
-  const enps=npsScore(rows.map(r=>r.answers.enps).filter(v=>v!=null));
-  const eng=avg(rows.map(r=>r.answers.engage).filter(v=>v!=null));
-  const stars=avg(rows.map(r=>r.answers.teamStars).filter(v=>v!=null));
+  // derive the available metrics from this survey's own definition
+  const qs=SURVEYS[key].sections.flatMap(s=>s.questions);
+  const npsQ=qs.find(q=>q.type==="nps"),scaleQ=qs.find(q=>q.type==="scale"),starQ=qs.find(q=>q.type==="stars");
+  const enps=npsQ?npsScore(rows.map(r=>r.answers[npsQ.id]).filter(v=>v!=null)):null;
+  const eng=scaleQ?avg(rows.map(r=>r.answers[scaleQ.id]).filter(v=>v!=null)):null;
+  const stars=starQ?avg(rows.map(r=>r.answers[starQ.id]).filter(v=>v!=null)):null;
+  const fav=overallFavPct2(rows,key);
   let h=`<div class="kpis">
     ${kpi("Responses",rows.length,SURVEYS[key].name)}
-    ${kpi("eNPS",enps==null?"—":(enps>0?"+"+enps:enps),"Likelihood to recommend",enps==null?"":scoreClass(enps>0?70:enps>-30?55:30))}
-    ${kpi("Avg engagement",eng==null?"—":eng.toFixed(1)+"/10","Self-rated",eng==null?"":scoreClass(eng*10))}
-    ${kpi("Team support",stars==null?"—":stars.toFixed(1)+"★","Avg team rating",stars==null?"":scoreClass(stars*20))}
+    ${kpi("Favourability",fav==null?"—":fav.toFixed(0)+"%","Avg across all statements",fav==null?"":scoreClass(fav))}
+    ${npsQ?kpi("eNPS",enps==null?"—":(enps>0?"+"+enps:enps),"Likelihood to recommend",npsCls(enps)):""}
+    ${scaleQ?kpi("Avg engagement",eng==null?"—":eng.toFixed(1)+"/10","Self-rated",eng==null?"":scoreClass(eng*10)):""}
+    ${starQ?kpi(key==="onb90"?"Overall rating":"Team support",stars==null?"—":stars.toFixed(1)+"★",starQ.label.length>40?starQ.label.slice(0,40)+"…":starQ.label,stars==null?"":scoreClass(stars*20)):""}
   </div>`;
   // Likert favourability breakdown across all matrix questions
-  h+=`<div class="card chart-card wide"><h3>Statement favourability</h3><div class="ch-sub">Average agreement per statement (100% = Strongly agree; reverse-worded items are inverted)</div><div class="lk-list">`;
+  h+=`<div class="card chart-card wide"><h3>Statement favourability</h3><div class="ch-sub">Average per statement (100% = most favourable; reverse-worded items are inverted)</div><div class="lk-list">`;
   SURVEYS[key].sections.forEach(sec=>{
     sec.questions.filter(q=>q.type==="likert").forEach(q=>{
       q.statements.forEach((st,i)=>{
@@ -1084,16 +1159,32 @@ function renderSurveyTab(data,key,elId){
   });
   h+=`</div></div>`;
   h+=`<div class="charts">
-    <div class="card chart-card"><h3>eNPS distribution</h3><div class="ch-sub">0–10 recommendation score</div><div class="chart-wrap"><canvas id="cS_nps"></canvas></div></div>
-    <div class="card chart-card"><h3>Responses by department</h3><div class="ch-sub">Departments with responses</div><div class="chart-wrap" style="height:${deptWrapH(rows)}"><canvas id="cS_dept"></canvas></div></div>
+    ${npsQ?`<div class="card chart-card"><h3>eNPS distribution</h3><div class="ch-sub">0–10 recommendation score</div><div class="chart-wrap"><canvas id="cS_nps"></canvas></div></div>`:``}
+    ${starQ?`<div class="card chart-card"><h3>Star rating distribution</h3><div class="ch-sub">${esc(starQ.label)}</div><div class="chart-wrap"><canvas id="cS_star"></canvas></div></div>`:``}
+    <div class="card chart-card ${(npsQ&&starQ)?'wide':''}"><h3>Responses by department</h3><div class="ch-sub">Departments with responses</div><div class="chart-wrap" style="height:${deptWrapH(rows)}"><canvas id="cS_dept"></canvas></div></div>
   </div>`;
   // open-text themes
   h+=renderOpenText(rows,key);
   el.innerHTML=h;
-  const npsBuckets=Array(11).fill(0);rows.forEach(r=>{if(r.answers.enps!=null)npsBuckets[r.answers.enps]++;});
-  charts.cS_nps=new Chart(cS_nps,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{data:npsBuckets,backgroundColor:npsBuckets.map((_,i)=>i>=9?"#2e7d32":i>=7?"#b45309":"#c62828"),borderRadius:5}]},options:barOpts()});
+  if(npsQ){
+    const npsBuckets=Array(11).fill(0);rows.forEach(r=>{const v=r.answers[npsQ.id];if(v!=null)npsBuckets[v]++;});
+    charts.cS_nps=new Chart(cS_nps,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{data:npsBuckets,backgroundColor:npsBuckets.map((_,i)=>i>=9?"#2e7d32":i>=7?"#b45309":"#c62828"),borderRadius:5}]},options:barOpts()});
+  }
+  if(starQ){
+    const starBuckets=[0,0,0,0,0];rows.forEach(r=>{const v=r.answers[starQ.id];if(v>=1&&v<=5)starBuckets[v-1]++;});
+    charts.cS_star=new Chart(cS_star,{type:"bar",data:{labels:["1★","2★","3★","4★","5★"],datasets:[{data:starBuckets,backgroundColor:["#c62828","#c62828","#b45309","#2e7d32","#2e7d32"],borderRadius:5}]},options:barOpts()});
+  }
   const dc=deptChartData(rows);
   charts.cS_dept=new Chart(cS_dept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{data:dc.map(x=>x[1]),backgroundColor:SURVEYS[key].iconColor==="var(--cp)"?"#D6410F":"#6d28d9",borderRadius:5}]},options:hbarOpts()});
+}
+// average favourability across all likert statements of one survey
+function overallFavPct2(rows,key){
+  const vals=[];
+  SURVEYS[key].sections.forEach(sec=>sec.questions.filter(q=>q.type==="likert").forEach(q=>{
+    q.statements.forEach((st,i)=>{rows.forEach(r=>{const a=r.answers[q.id];
+      if(a&&a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
+  }));
+  return vals.length?((avg(vals)-1)/6*100):null;
 }
 function deptChartData(rows){return DEPTS.map(d=>[d,rows.filter(r=>r.department===d).length]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);}
 function deptWrapH(rows){return deptWrapH2(deptChartData(rows).length);}
@@ -1150,7 +1241,7 @@ function renderResponses(data){
     <div class="tbl-wrap"><table class="data"><thead><tr>
     <th>Ref</th><th>Survey</th><th>Department</th><th>Country</th><th>Key score</th><th>Submitted</th></tr></thead><tbody>`;
   sorted.forEach((r,i)=>{
-    const s=SURVEYS[r.surveyType];const pillCls=r.surveyType==="onb30"?"d30":r.surveyType==="onb60"?"d60":"exit";
+    const s=SURVEYS[r.surveyType];const pillCls=r.surveyType==="onb30"?"d30":r.surveyType==="onb90"?"d60":"exit";
     const score=r.surveyType==="exit"?(r.answers.nps!=null?r.answers.nps+"/10 NPS":"—"):(r.answers.enps!=null?r.answers.enps+"/10 eNPS":"—");
     const d=new Date(r.submittedAt);const ref="#"+String(sorted.length-i).padStart(4,"0");
     h+=`<tr class="clk" onclick="viewMyResponse('${r.id}')">
@@ -1189,7 +1280,7 @@ function flattenRow(r){
   s.sections.forEach(sec=>sec.questions.forEach(q=>{
     const a=r.answers[q.id];
     if(q.type==="dropdown")return;
-    if(q.type==="likert"){q.statements.forEach((st,i)=>{row[trunc(st.t)]=a&&a[i]!==undefined?LIKERT[7-a[i]]:"";});}
+    if(q.type==="likert"){const SC=q.scale||LIKERT;q.statements.forEach((st,i)=>{row[trunc(st.t)]=a&&a[i]!==undefined?SC[7-a[i]]:"";});}
     else if(q.type==="rank"){(a||[]).forEach((o,i)=>row[trunc(q.label)+" #"+(i+1)]=o||"");}
     else if(q.type==="stars")row[trunc(q.label)]=a!=null?a+"/5":"";
     else if(q.type==="nps"||q.type==="scale")row[trunc(q.label)]=a!=null?a:"";
@@ -1220,7 +1311,7 @@ function openResponseModal(r,forPrint){
     let inner="";
     sec.questions.forEach(q=>{const a=r.answers[q.id];
       if(q.type==="dropdown"){inner+=ansBlock(q.label,a||"—");}
-      else if(q.type==="likert"){let mini=`<div>`;q.statements.forEach((st,i)=>{const v=a&&a[i]!==undefined?LIKERT[7-a[i]]:"—";mini+=`<div class="ans-mini"><span class="m-s">"${st.t}"</span><span class="m-v">${v}</span></div>`;});mini+=`</div>`;inner+=`<div class="ans-block"><div class="a-q">${q.label}</div>${mini}</div>`;}
+      else if(q.type==="likert"){const SC=q.scale||LIKERT;let mini=`<div>`;q.statements.forEach((st,i)=>{const v=a&&a[i]!==undefined?SC[7-a[i]]:"—";mini+=`<div class="ans-mini"><span class="m-s">"${st.t}"</span><span class="m-v">${v}</span></div>`;});mini+=`</div>`;inner+=`<div class="ans-block"><div class="a-q">${q.label}</div>${mini}</div>`;}
       else if(q.type==="rank"){inner+=ansBlock(q.label,(a||[]).filter(Boolean).map((o,i)=>`${i+1}. ${o}`).join("  ·  ")||"—");}
       else if(q.type==="stars"){inner+=ansBlock(q.label,a!=null?"★".repeat(a)+"☆".repeat(5-a)+`  (${a}/5)`:"—");}
       else if(q.type==="nps"||q.type==="scale"){inner+=ansBlock(q.label,a!=null?a+"/10":"—");}
@@ -1262,7 +1353,7 @@ gateInit();
 (function applyMode(){
   const p=new URLSearchParams(location.search);
   const svy=(p.get("s")||p.get("survey")||"").toLowerCase();
-  if(["onb30","onb60","exit"].includes(svy))LOCK_SURVEY=svy;
+  if(["onb30","onb90","exit"].includes(svy))LOCK_SURVEY=svy;
   EMP_ONLY=!!LOCK_SURVEY;
   if(EMP_ONLY){
     document.getElementById("roleToggle").style.display="none";
