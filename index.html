@@ -268,6 +268,32 @@ img{max-width:100%}
 .attn .a-meta{font-size:10.5px;color:var(--text3);margin-bottom:3px}
 .attn .a-txt{font-size:12.5px;line-height:1.45}
 
+/* ===== Question editor ===== */
+.qe-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;margin-bottom:14px}
+.qe-pick{display:flex;gap:4px;background:var(--card2);border:1px solid var(--border);border-radius:30px;padding:3px}
+.qe-pick button{border:none;background:none;font:inherit;font-size:12.5px;font-weight:700;color:var(--text3);padding:6px 14px;border-radius:30px;cursor:pointer}
+.qe-pick button.on{background:var(--cp);color:#fff}
+.qe-dirty{font-size:11.5px;font-weight:700;color:var(--warn);background:var(--warn-bg);border:1px solid rgba(180,83,9,.25);padding:4px 10px;border-radius:20px}
+.qe-sec{margin-bottom:12px;padding:14px 16px}
+.qe-sec-hd{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.qe-sec-hd input{flex:1;font:inherit;font-size:13px;font-weight:800;color:var(--cp);border:1px solid transparent;background:none;border-radius:6px;padding:5px 7px}
+.qe-sec-hd input:hover{border-color:var(--border2)}
+.qe-sec-hd input:focus{outline:none;border-color:var(--cp);background:var(--card)}
+.qe-q{display:flex;align-items:flex-start;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card2);margin-bottom:6px}
+.qe-q .qe-t{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px;background:var(--blue-bg);color:var(--blue);flex-shrink:0;margin-top:2px}
+.qe-q .qe-main{flex:1;min-width:0}
+.qe-q .qe-lbl{font-size:12.5px;line-height:1.4}
+.qe-q .qe-meta{font-size:10.5px;color:var(--text3);margin-top:3px}
+.qe-q .qe-acts{display:flex;gap:4px;flex-shrink:0}
+.qe-ic{border:1px solid var(--border2);background:var(--card);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text2);line-height:1;display:flex;align-items:center;justify-content:center}
+.qe-ic:hover{border-color:var(--cp);color:var(--cp)}
+.qe-ic.del:hover{border-color:var(--err);color:var(--err)}
+.req-dot{color:var(--cp);font-weight:800}
+.qe-add{font-size:12px;font-weight:700;color:var(--cp);background:none;border:1px dashed var(--border2);border-radius:8px;padding:8px;width:100%;cursor:pointer;font-family:inherit}
+.qe-add:hover{border-color:var(--cp);background:var(--cp-l)}
+.qe-stmt-row{display:flex;gap:6px;margin-bottom:6px}
+.qe-stmt-row input{flex:1;padding:7px 9px;font:inherit;font-size:12.5px;border:1px solid var(--border2);border-radius:6px;background:var(--card);color:var(--text)}
+
 /* responses table */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
 table.data{border-collapse:collapse;width:100%;min-width:720px;font-size:12.5px}
@@ -313,7 +339,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
       <div class="logo-mark"></div>
       <div class="logo-txt"><b>CHECK POINT</b><span>YOU DESERVE THE BEST SECURITY</span></div>
     </div>
-    <div class="role-toggle" id="roleToggle">
+    <div class="role-toggle" id="roleToggle" style="display:none">
       <button id="tgEmp" class="on" onclick="setRole('emp')">Employee</button>
       <button id="tgHr" onclick="setRole('hr')">HR Admin</button>
     </div>
@@ -387,6 +413,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
         <button class="admin-tab" data-tab="exit" onclick="setTab('exit')">Exit Survey</button>
         <button class="admin-tab" data-tab="responses" onclick="setTab('responses')">Responses</button>
         <button class="admin-tab" data-tab="share" onclick="setTab('share')">Share &amp; QR</button>
+        <button class="admin-tab" data-tab="questions" onclick="setTab('questions')">📝 Questions</button>
         <button class="admin-tab" data-tab="export" onclick="setTab('export')">Export</button>
       </div>
 
@@ -407,6 +434,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
       <div id="tab-exit" class="tabpane" style="display:none"></div>
       <div id="tab-responses" class="tabpane" style="display:none"></div>
       <div id="tab-share" class="tabpane" style="display:none"></div>
+      <div id="tab-questions" class="tabpane" style="display:none"></div>
       <div id="tab-export" class="tabpane" style="display:none"></div>
     </div>
   </div>
@@ -635,6 +663,11 @@ const SURVEYS={
     sections:exitSections()},
 };
 
+// Snapshot of the built-in questions, used by "Reset to default" in the editor.
+const DEFAULT_DEFS = JSON.parse(JSON.stringify(
+  Object.keys(SURVEYS).reduce((o,k)=>{o[k]={introTitle:SURVEYS[k].introTitle,introBody:SURVEYS[k].introBody,sections:SURVEYS[k].sections};return o;},{})
+));
+
 /* ============================================================
    ▼▼▼ CONFIG — connect to your Supabase project to collect
    responses centrally (see DEPLOY.md). Leave the placeholders
@@ -677,6 +710,41 @@ async function loadCloud(){
   const {data,error}=await sb.from("survey_responses").select("*").order("submitted_at",{ascending:false});
   if(error)throw error;
   CACHE=(data||[]).map(rowToResp);
+}
+
+/* ---- Survey question definitions (editable by HR) ---- */
+const LS_DEFS="cp_survey_defs_v1";
+function applyDef(key,def){
+  if(!SURVEYS[key]||!def)return;
+  if(def.sections)SURVEYS[key].sections=def.sections;
+  if(def.introTitle!==undefined)SURVEYS[key].introTitle=def.introTitle;
+  if(def.introBody!==undefined)SURVEYS[key].introBody=def.introBody;
+}
+async function loadDefinitions(){
+  try{
+    if(CLOUD){
+      const {data,error}=await sb.from("survey_definitions").select("*");
+      if(error)return;                       // table may not exist yet — keep built-in questions
+      (data||[]).forEach(row=>applyDef(row.key,row.definition));
+    } else {
+      const raw=localStorage.getItem(LS_DEFS);
+      if(raw){const o=JSON.parse(raw);Object.keys(o).forEach(k=>applyDef(k,o[k]));}
+    }
+  }catch(e){/* fall back to built-in questions */}
+}
+async function saveDefinition(key,def){
+  if(CLOUD){
+    const {error}=await sb.from("survey_definitions")
+      .upsert({key,definition:def,updated_at:new Date().toISOString()},{onConflict:"key"});
+    if(error)throw error;
+  } else {
+    let o={};try{o=JSON.parse(localStorage.getItem(LS_DEFS))||{}}catch(e){}
+    o[key]=def;localStorage.setItem(LS_DEFS,JSON.stringify(o));
+  }
+}
+async function deleteDefinition(key){
+  if(CLOUD){const {error}=await sb.from("survey_definitions").delete().eq("key",key);if(error)throw error;}
+  else {let o={};try{o=JSON.parse(localStorage.getItem(LS_DEFS))||{}}catch(e){};delete o[key];localStorage.setItem(LS_DEFS,JSON.stringify(o));}
 }
 
 /* ============================================================
@@ -960,7 +1028,167 @@ function renderDash(){
   else if(curTab==="exit")renderExitTab(data);
   else if(curTab==="responses")renderResponses(data);
   else if(curTab==="share")renderShare();
+  else if(curTab==="questions")renderQuestions();
   else if(curTab==="export")renderExport(data);
+}
+
+/* ============================================================
+   QUESTION EDITOR
+   ============================================================ */
+let EDIT_KEY="onb30", EDIT_DEF=null, EDIT_DIRTY=false;
+const Q_TYPES={
+  input:"Short text box", text:"Long text / comment", dropdown:"Dropdown list",
+  likert:"Rating matrix", stars:"Star rating (1–5)", nps:"0–10 score", scale:"0–10 scale", rank:"Rank top 3"
+};
+function cloneDef(key){return JSON.parse(JSON.stringify({introTitle:SURVEYS[key].introTitle,introBody:SURVEYS[key].introBody,sections:SURVEYS[key].sections}));}
+function qePick(key){ if(EDIT_DIRTY&&!confirm("Discard unsaved question changes?"))return; EDIT_KEY=key;EDIT_DEF=null;EDIT_DIRTY=false;renderQuestions(); }
+function qeDirty(){EDIT_DIRTY=true;renderQuestions();}
+
+function renderQuestions(){
+  const el=document.getElementById("tab-questions");
+  if(!EDIT_DEF)EDIT_DEF=cloneDef(EDIT_KEY);
+  const d=EDIT_DEF;
+  let h=`<div class="card qe-bar">
+    <div class="qe-pick">${Object.values(SURVEYS).map(s=>`<button class="${s.key===EDIT_KEY?'on':''}" onclick="qePick('${s.key}')">${s.short}</button>`).join("")}</div>
+    ${EDIT_DIRTY?`<span class="qe-dirty">● Unsaved changes</span>`:``}
+    <div class="spacer" style="flex:1"></div>
+    <button class="btn btn-ghost btn-sm" onclick="qeReset()">Reset to default</button>
+    <button class="btn btn-primary btn-sm" onclick="qeSave()">Save changes</button>
+  </div>`;
+  h+=`<div class="card chart-card" style="margin-bottom:14px">
+    <h3>Welcome message</h3><div class="ch-sub">Shown at the top of the survey's first page.</div>
+    <div class="field"><label>Title</label><input id="qeIntroT" value="${esc(d.introTitle||"")}" oninput="EDIT_DEF.introTitle=this.value;EDIT_DIRTY=true"></div>
+    <div class="field" style="margin-bottom:0"><label>Message</label><textarea id="qeIntroB" style="min-height:80px" oninput="EDIT_DEF.introBody=this.value;EDIT_DIRTY=true">${esc(d.introBody||"")}</textarea></div>
+  </div>`;
+  d.sections.forEach((sec,si)=>{
+    h+=`<div class="card qe-sec">
+      <div class="qe-sec-hd">
+        <input value="${esc(sec.tag)}" onchange="EDIT_DEF.sections[${si}].tag=this.value;qeDirty()" title="Section name">
+        <button class="qe-ic" onclick="qeSecMove(${si},-1)" title="Move section up">↑</button>
+        <button class="qe-ic" onclick="qeSecMove(${si},1)" title="Move section down">↓</button>
+        <button class="qe-ic del" onclick="qeSecDel(${si})" title="Delete section">✕</button>
+      </div>`;
+    sec.questions.forEach((q,qi)=>{
+      const meta=q.type==="likert"?`${q.statements.length} statement(s) · ${(q.scale&&q.scale[0]==="Extremely Satisfied")?"Satisfaction":"Agreement"} scale`
+        :(q.type==="dropdown"||q.type==="rank")?`${(q.options||[]).length} option(s)`
+        :Q_TYPES[q.type]||q.type;
+      h+=`<div class="qe-q">
+        <span class="qe-t">${(Q_TYPES[q.type]||q.type).split(" ")[0]}</span>
+        <div class="qe-main">
+          <div class="qe-lbl">${esc(q.label)} ${q.required?'<span class="req-dot">*</span>':'<span style="color:var(--text3);font-size:10px">(optional)</span>'}</div>
+          <div class="qe-meta">${esc(meta)}${q.note?" · note: "+esc(q.note):""}</div>
+        </div>
+        <div class="qe-acts">
+          <button class="qe-ic" onclick="qeMove(${si},${qi},-1)" title="Move up">↑</button>
+          <button class="qe-ic" onclick="qeMove(${si},${qi},1)" title="Move down">↓</button>
+          <button class="qe-ic" onclick="qeEdit(${si},${qi})" title="Edit">✎</button>
+          <button class="qe-ic del" onclick="qeDel(${si},${qi})" title="Delete">🗑</button>
+        </div></div>`;
+    });
+    h+=`<button class="qe-add" onclick="qeEdit(${si},-1)">+ Add question to "${esc(sec.tag)}"</button></div>`;
+  });
+  h+=`<button class="qe-add" style="max-width:260px" onclick="qeSecAdd()">+ Add new section</button>`;
+  h+=`<div class="ch-sub" style="margin-top:14px">💡 Changes apply to <b>new</b> responses. Existing responses keep the answers they were given — deleted questions simply stop appearing in the dashboard.</div>`;
+  el.innerHTML=h;
+}
+function qeMove(si,qi,d){const a=EDIT_DEF.sections[si].questions;const j=qi+d;if(j<0||j>=a.length)return;[a[qi],a[j]]=[a[j],a[qi]];qeDirty();}
+function qeDel(si,qi){const q=EDIT_DEF.sections[si].questions[qi];if(!confirm(`Delete this question?\n\n"${q.label}"`))return;EDIT_DEF.sections[si].questions.splice(qi,1);qeDirty();}
+function qeSecMove(si,d){const a=EDIT_DEF.sections;const j=si+d;if(j<0||j>=a.length)return;[a[si],a[j]]=[a[j],a[si]];qeDirty();}
+function qeSecDel(si){if(!confirm(`Delete the section "${EDIT_DEF.sections[si].tag}" and all its questions?`))return;EDIT_DEF.sections.splice(si,1);qeDirty();}
+function qeSecAdd(){EDIT_DEF.sections.push({tag:"New section",questions:[]});qeDirty();}
+async function qeSave(){
+  try{
+    await saveDefinition(EDIT_KEY,EDIT_DEF);
+    applyDef(EDIT_KEY,JSON.parse(JSON.stringify(EDIT_DEF)));
+    EDIT_DIRTY=false;renderQuestions();
+    toast("Questions saved — employees will see them immediately");
+  }catch(e){toast("Save failed: "+(e.message||"check the survey_definitions table"));}
+}
+async function qeReset(){
+  if(!confirm("Reset this survey's questions back to the built-in default? Your customisations will be lost."))return;
+  try{
+    await deleteDefinition(EDIT_KEY);
+    applyDef(EDIT_KEY,JSON.parse(JSON.stringify(DEFAULT_DEFS[EDIT_KEY])));
+    EDIT_DEF=null;EDIT_DIRTY=false;renderQuestions();
+    toast("Reset to default questions");
+  }catch(e){toast("Reset failed: "+(e.message||""));}
+}
+
+/* ---- question edit modal ---- */
+let QE_SI=-1,QE_QI=-1;
+function qeEdit(si,qi){
+  QE_SI=si;QE_QI=qi;
+  const q=qi<0?{id:"q"+Date.now().toString(36),type:"text",label:"",required:false}:JSON.parse(JSON.stringify(EDIT_DEF.sections[si].questions[qi]));
+  document.getElementById("mTitle").textContent=qi<0?"Add question":"Edit question";
+  let h=`<div class="field"><label>Question type</label>
+    <select id="qeType" onchange="qeTypeChange()">${Object.keys(Q_TYPES).map(t=>`<option value="${t}" ${q.type===t?"selected":""}>${Q_TYPES[t]}</option>`).join("")}</select></div>
+    <div class="field"><label>Question text</label><textarea id="qeLabel" style="min-height:60px">${esc(q.label||"")}</textarea></div>
+    <div class="field"><label>Small note (optional)</label><input id="qeNote" value="${esc(q.note||"")}" placeholder='e.g. Only for Sales Role'></div>
+    <div class="field"><label><input type="checkbox" id="qeReq" ${q.required?"checked":""} style="width:auto;margin-right:7px">Required</label></div>
+    <div id="qeExtra"></div>`;
+  document.getElementById("mBody").innerHTML=h+`<div class="modal-acts" style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-ghost btn-sm" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="qeModalSave()">${qi<0?"Add question":"Save question"}</button></div>`;
+  window.__qeTmp=q;
+  qeTypeChange(true);
+  document.getElementById("modalOv").classList.add("on");
+}
+function qeTypeChange(first){
+  const t=document.getElementById("qeType").value;const q=window.__qeTmp;
+  const ex=document.getElementById("qeExtra");let h="";
+  if(t==="likert"){
+    const stmts=(first&&q.type==="likert"&&q.statements)?q.statements:[{t:"",reverse:false}];
+    const isSat=first&&q.scale&&q.scale[0]==="Extremely Satisfied";
+    h=`<div class="field"><label>Scale</label><select id="qeScale">
+        <option value="agree" ${!isSat?"selected":""}>Agreement (Strongly agree → Strongly disagree)</option>
+        <option value="satis" ${isSat?"selected":""}>Satisfaction (Extremely Satisfied → Not Satisfied at All)</option></select></div>
+      <div class="field"><label>Statements (one row each)</label><div id="qeStmts">
+        ${stmts.map((s,i)=>qeStmtRow(s,i)).join("")}</div>
+        <button class="qe-add" style="margin-top:6px" onclick="qeAddStmt()">+ Add statement</button></div>`;
+  } else if(t==="dropdown"||t==="rank"){
+    const opts=(first&&q.options)?q.options:["Option 1","Option 2"];
+    h=`<div class="field"><label>Options (one per line)</label>
+      <textarea id="qeOpts" style="min-height:100px">${esc(opts.join("\n"))}</textarea>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px">Tip: for Department/Country, leave as-is to keep the built-in lists.</div></div>`;
+  } else if(t==="input"){
+    h=`<div class="field"><label>Input type</label><select id="qeInputType">
+        <option value="text" ${q.inputType==="text"?"selected":""}>Text</option>
+        <option value="email" ${q.inputType==="email"?"selected":""}>Email (validated)</option></select></div>
+      <div class="field"><label>Placeholder</label><input id="qePh" value="${esc(q.ph||"")}"></div>`;
+  } else if(t==="nps"||t==="scale"){
+    h=`<div class="grid2"><div class="field"><label>Left label</label><input id="qeLow" value="${esc(q.lowLbl||"")}"></div>
+      <div class="field"><label>Right label</label><input id="qeHigh" value="${esc(q.highLbl||"")}"></div></div>`;
+  }
+  ex.innerHTML=h;
+}
+function qeStmtRow(s,i){return `<div class="qe-stmt-row"><input value="${esc(s.t||"")}" placeholder="Statement text">
+  <label style="font-size:10.5px;color:var(--text3);display:flex;align-items:center;gap:4px;white-space:nowrap"><input type="checkbox" ${s.reverse?"checked":""} style="width:auto">reverse</label>
+  <button class="qe-ic del" onclick="this.parentNode.remove()">✕</button></div>`;}
+function qeAddStmt(){document.getElementById("qeStmts").insertAdjacentHTML("beforeend",qeStmtRow({t:"",reverse:false},0));}
+function qeModalSave(){
+  const t=document.getElementById("qeType").value;
+  const label=document.getElementById("qeLabel").value.trim();
+  if(!label){toast("Please enter the question text");return;}
+  const q={id:window.__qeTmp.id,type:t,label,required:document.getElementById("qeReq").checked};
+  const note=document.getElementById("qeNote").value.trim();if(note)q.note=note;
+  if(t==="likert"){
+    const rows=[...document.querySelectorAll("#qeStmts .qe-stmt-row")];
+    q.statements=rows.map(r=>({t:r.querySelector("input[type=text],input:not([type])").value.trim(),reverse:r.querySelector("input[type=checkbox]").checked})).filter(s=>s.t);
+    if(!q.statements.length){toast("Add at least one statement");return;}
+    if(document.getElementById("qeScale").value==="satis")q.scale=SATIS.slice();
+  } else if(t==="dropdown"||t==="rank"){
+    q.options=document.getElementById("qeOpts").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    if(!q.options.length){toast("Add at least one option");return;}
+  } else if(t==="input"){
+    q.inputType=document.getElementById("qeInputType").value;
+    const ph=document.getElementById("qePh").value.trim();if(ph)q.ph=ph;
+  } else if(t==="nps"||t==="scale"){
+    q.lowLbl=document.getElementById("qeLow").value.trim();
+    q.highLbl=document.getElementById("qeHigh").value.trim();
+  }
+  if(QE_QI<0)EDIT_DEF.sections[QE_SI].questions.push(q);
+  else EDIT_DEF.sections[QE_SI].questions[QE_QI]=q;
+  closeModal();qeDirty();
 }
 
 function defaultBase(){return location.href.split(/[?#]/)[0];}
@@ -1387,21 +1615,21 @@ let toastT;function toast(m){const t=document.getElementById("toast");t.textCont
    INIT
    ============================================================ */
 seedIfEmpty();
-gateInit();
-(function applyMode(){
+(async function init(){
   const p=new URLSearchParams(location.search);
   const svy=(p.get("s")||p.get("survey")||"").toLowerCase();
   if(["onb30","onb90","exit"].includes(svy))LOCK_SURVEY=svy;
   EMP_ONLY=!!LOCK_SURVEY;
+  await loadDefinitions();   // pick up any questions HR has customised
+  gateInit();
   if(EMP_ONLY){
-    document.getElementById("roleToggle").style.display="none";
     setRole("emp");
     const s=SURVEYS[LOCK_SURVEY];
     document.getElementById("heroTitle").textContent=s.name;
     document.getElementById("heroSub").textContent=s.desc;
     startSurvey(LOCK_SURVEY);
   } else {
-    showEmpLanding();
+    setRole("hr");           // the plain URL is the HR entry point; employees use ?s= links
   }
   // reflect connection status in the footer
   const fn=document.querySelector(".footer-note");
