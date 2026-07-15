@@ -932,7 +932,9 @@ async function submitSurvey(){
   const btn=document.getElementById("btnNext");
   if(btn){btn.disabled=true;btn.textContent="Submitting…";}
   try{ await addResponse(resp); }
-  catch(e){ if(btn){btn.disabled=false;btn.textContent="Submit ✓";} toast("Could not submit — please check your connection and try again"); return; }
+  catch(e){ if(btn){btn.disabled=false;btn.textContent="Submit ✓";}
+    console.error("Submit failed:",e);
+    toast("Could not submit: "+(e&&e.message?e.message:"unknown error")); return; }
   if(btn){btn.disabled=false;btn.textContent="Submit ✓";}
   lastResponse=resp;
   document.getElementById("empSurvey").style.display="none";
