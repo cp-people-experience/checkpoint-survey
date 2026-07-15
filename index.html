@@ -380,8 +380,8 @@ table.data tr.clk:hover td{background:var(--cp-l)}
     <!-- thank you -->
     <div id="empThanks" class="narrow" style="display:none">
       <div class="card thanks">
-        <div class="em">🎉</div>
-        <h2>Thank you!</h2>
+        <div class="em" id="thEmoji">🎉</div>
+        <h2 id="thTitle">Thank you!</h2>
         <p id="thMsg"></p>
         <div class="form-nav" style="justify-content:center">
           <button class="btn btn-ghost" onclick="printResponse()">🖨️ Print my answers</button>
@@ -650,22 +650,30 @@ const SURVEYS={
     desc:"Share your experience after your first 30 days at Check Point.",
     introTitle:"🎉 HURRAY! You've Completed Your First 30 Days with Check Point! 🎉",
     introBody:"We're thrilled to have you on board and hope your journey so far has been exciting, insightful, and empowering. Now that you've hit your 30-day milestone, we'd love to hear your thoughts! Your feedback will help us improve the onboarding experience for future hires and ensure every new team member feels supported from day one. Let's get started! 🚀",
+    thanksEmoji:"🎉", thanksTitle:"Thank you for your feedback!",
+    thanksBody:"Your responses have been recorded. They help us make onboarding better for everyone who joins after you. If you raised anything that needs attention, the HR team will follow up with you.",
     sections:onboardingSections(30)},
   onb90:{key:"onb90",name:"90-Day Onboarding Survey",short:"90-Day Onboarding",icon:"📈",iconBg:"var(--pur-bg)",iconColor:"var(--pur)",
     desc:"You've reached your 90-day milestone — tell us how it's going.",
     introTitle:"🎉 HURRAY! You've Completed 90 Days with Check Point! 🎉",
     introBody:"We're so glad to have you on board! Now that you've reached your 90-day milestone, we'd love to hear how your experience has been so far — what's working well, what could be better, and how we can continue to support you. Your feedback helps us improve the onboarding journey for future team members and ensure you're set up for success.",
+    thanksEmoji:"🌟", thanksTitle:"Thank you — and congratulations on your first 90 days!",
+    thanksBody:"Your feedback has been recorded. It helps us keep improving the onboarding journey and make sure you're set up for success. If you flagged anything that needs attention, the HR team will be in touch.",
     sections:onb90Sections()},
   exit:{key:"exit",name:"Employee Exit Survey 2026",short:"Exit Survey",icon:"👋",iconBg:"var(--warn-bg)",iconColor:"var(--warn)",
     desc:"Help us understand your journey as you move on from Check Point.",
     introTitle:"👋 Thank you for being part of Check Point.",
     introBody:"As you move on to your next chapter, we'd value your honest feedback about your time with us. Your responses help us understand what we do well and where we can improve — for the colleagues who remain, and for those who join in future. We wish you all the best in your next role.",
+    thanksEmoji:"💙", thanksTitle:"Thank you, and all the best!",
+    thanksBody:"Thank you for sharing your honest feedback — it genuinely helps us improve for the colleagues who remain and those who join in future. It has been a pleasure having you at Check Point. We wish you every success in your next chapter.",
     sections:exitSections()},
 };
 
 // Snapshot of the built-in questions, used by "Reset to default" in the editor.
 const DEFAULT_DEFS = JSON.parse(JSON.stringify(
-  Object.keys(SURVEYS).reduce((o,k)=>{o[k]={introTitle:SURVEYS[k].introTitle,introBody:SURVEYS[k].introBody,sections:SURVEYS[k].sections};return o;},{})
+  Object.keys(SURVEYS).reduce((o,k)=>{const s=SURVEYS[k];
+    o[k]={introTitle:s.introTitle,introBody:s.introBody,thanksEmoji:s.thanksEmoji,thanksTitle:s.thanksTitle,thanksBody:s.thanksBody,sections:s.sections};
+    return o;},{})
 ));
 
 /* ============================================================
@@ -696,16 +704,20 @@ function loadAll(){return CLOUD?CACHE:readLocal();}
 function saveAll(a){CACHE=a;if(!CLOUD)localStorage.setItem(LS_KEY,JSON.stringify(a));}
 async function addResponse(r){
   if(CLOUD){
+    // Name/email live inside `answers` (empName/empEmail) — no extra columns needed.
     const {error}=await sb.from("survey_responses").insert({
       survey_type:r.surveyType,department:r.department,country:r.country,
-      employee_name:r.employeeName,employee_email:r.employeeEmail,
       answers:r.answers,submitted_at:new Date(r.submittedAt).toISOString()
     });
     if(error)throw error;
     CACHE.push(r);
   } else { const a=readLocal();a.push(r);saveAll(a); }
 }
-function rowToResp(row){return {id:row.id,surveyType:row.survey_type,department:row.department,country:row.country,employeeName:row.employee_name||"—",employeeEmail:row.employee_email||"—",submittedAt:new Date(row.submitted_at).getTime(),answers:row.answers||{}};}
+function rowToResp(row){const a=row.answers||{};
+  return {id:row.id,surveyType:row.survey_type,department:row.department,country:row.country,
+    employeeName:row.employee_name||a.empName||"—",     // works with or without the optional columns
+    employeeEmail:row.employee_email||a.empEmail||"—",
+    submittedAt:new Date(row.submitted_at).getTime(),answers:a};}
 async function loadCloud(){
   const {data,error}=await sb.from("survey_responses").select("*").order("submitted_at",{ascending:false});
   if(error)throw error;
@@ -717,8 +729,9 @@ const LS_DEFS="cp_survey_defs_v1";
 function applyDef(key,def){
   if(!SURVEYS[key]||!def)return;
   if(def.sections)SURVEYS[key].sections=def.sections;
-  if(def.introTitle!==undefined)SURVEYS[key].introTitle=def.introTitle;
-  if(def.introBody!==undefined)SURVEYS[key].introBody=def.introBody;
+  ["introTitle","introBody","thanksEmoji","thanksTitle","thanksBody"].forEach(f=>{
+    if(def[f]!==undefined)SURVEYS[key][f]=def[f];
+  });
 }
 async function loadDefinitions(){
   try{
@@ -937,11 +950,12 @@ async function submitSurvey(){
     toast("Could not submit: "+(e&&e.message?e.message:"unknown error")); return; }
   if(btn){btn.disabled=false;btn.textContent="Submit ✓";}
   lastResponse=resp;
+  const sv=SURVEYS[curSurveyKey];
   document.getElementById("empSurvey").style.display="none";
   document.getElementById("empThanks").style.display="block";
-  document.getElementById("thMsg").textContent=curSurveyKey==="exit"
-    ?"Thank you for sharing your honest feedback. We wish you all the best in your next chapter. 💙"
-    :"Your responses have been recorded. They help us make onboarding better for everyone who joins after you.";
+  document.getElementById("thEmoji").textContent=sv.thanksEmoji||"🎉";
+  document.getElementById("thTitle").textContent=sv.thanksTitle||"Thank you!";
+  document.getElementById("thMsg").textContent=sv.thanksBody||"Your responses have been recorded.";
   document.getElementById("progBar").style.width="100%";
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -1042,7 +1056,10 @@ const Q_TYPES={
   input:"Short text box", text:"Long text / comment", dropdown:"Dropdown list",
   likert:"Rating matrix", stars:"Star rating (1–5)", nps:"0–10 score", scale:"0–10 scale", rank:"Rank top 3"
 };
-function cloneDef(key){return JSON.parse(JSON.stringify({introTitle:SURVEYS[key].introTitle,introBody:SURVEYS[key].introBody,sections:SURVEYS[key].sections}));}
+function cloneDef(key){const s=SURVEYS[key];return JSON.parse(JSON.stringify({
+  introTitle:s.introTitle,introBody:s.introBody,
+  thanksEmoji:s.thanksEmoji,thanksTitle:s.thanksTitle,thanksBody:s.thanksBody,
+  sections:s.sections}));}
 function qePick(key){ if(EDIT_DIRTY&&!confirm("Discard unsaved question changes?"))return; EDIT_KEY=key;EDIT_DEF=null;EDIT_DIRTY=false;renderQuestions(); }
 function qeDirty(){EDIT_DIRTY=true;renderQuestions();}
 
@@ -1057,10 +1074,20 @@ function renderQuestions(){
     <button class="btn btn-ghost btn-sm" onclick="qeReset()">Reset to default</button>
     <button class="btn btn-primary btn-sm" onclick="qeSave()">Save changes</button>
   </div>`;
-  h+=`<div class="card chart-card" style="margin-bottom:14px">
-    <h3>Welcome message</h3><div class="ch-sub">Shown at the top of the survey's first page.</div>
-    <div class="field"><label>Title</label><input id="qeIntroT" value="${esc(d.introTitle||"")}" oninput="EDIT_DEF.introTitle=this.value;EDIT_DIRTY=true"></div>
-    <div class="field" style="margin-bottom:0"><label>Message</label><textarea id="qeIntroB" style="min-height:80px" oninput="EDIT_DEF.introBody=this.value;EDIT_DIRTY=true">${esc(d.introBody||"")}</textarea></div>
+  h+=`<div class="sc-grid" style="margin-bottom:14px">
+    <div class="card chart-card">
+      <h3>👋 Welcome message</h3><div class="ch-sub">Shown at the top of the survey's first page.</div>
+      <div class="field"><label>Title</label><input id="qeIntroT" value="${esc(d.introTitle||"")}" oninput="EDIT_DEF.introTitle=this.value;EDIT_DIRTY=true"></div>
+      <div class="field" style="margin-bottom:0"><label>Message</label><textarea id="qeIntroB" style="min-height:96px" oninput="EDIT_DEF.introBody=this.value;EDIT_DIRTY=true">${esc(d.introBody||"")}</textarea></div>
+    </div>
+    <div class="card chart-card">
+      <h3>🎉 Thank-you page</h3><div class="ch-sub">Shown after the employee clicks Submit.</div>
+      <div class="grid2">
+        <div class="field"><label>Emoji</label><input id="qeThE" value="${esc(d.thanksEmoji||"")}" maxlength="4" oninput="EDIT_DEF.thanksEmoji=this.value;EDIT_DIRTY=true"></div>
+        <div class="field"><label>Title</label><input id="qeThT" value="${esc(d.thanksTitle||"")}" oninput="EDIT_DEF.thanksTitle=this.value;EDIT_DIRTY=true"></div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>Message</label><textarea id="qeThB" style="min-height:96px" oninput="EDIT_DEF.thanksBody=this.value;EDIT_DIRTY=true">${esc(d.thanksBody||"")}</textarea></div>
+    </div>
   </div>`;
   d.sections.forEach((sec,si)=>{
     h+=`<div class="card qe-sec">
