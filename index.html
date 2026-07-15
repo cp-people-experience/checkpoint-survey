@@ -748,19 +748,29 @@ let CACHE=[];                       // in-memory responses (source of truth in c
 function readLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY))||[]}catch(e){return[]}}
 function loadAll(){return CLOUD?CACHE:readLocal();}
 function saveAll(a){CACHE=a;if(!CLOUD)localStorage.setItem(LS_KEY,JSON.stringify(a));}
+// Older databases were created with a rule listing only onb30/onb60/exit, which
+// predates the 90-day survey. If that rule is still present we store the response
+// under a permitted value and keep the true survey key in `answers._survey`, so
+// nothing is lost. Once the rule is dropped, the first insert simply succeeds.
+const LEGACY_TYPE={onb90:"onb60"};
 async function addResponse(r){
   if(CLOUD){
     // Name/email live inside `answers` (empName/empEmail) — no extra columns needed.
-    const {error}=await sb.from("survey_responses").insert({
-      survey_type:r.surveyType,department:r.department,country:r.country,
-      answers:r.answers,submitted_at:new Date(r.submittedAt).toISOString()
-    });
+    const base={department:r.department,country:r.country,submitted_at:new Date(r.submittedAt).toISOString()};
+    let {error}=await sb.from("survey_responses").insert({...base,survey_type:r.surveyType,answers:r.answers});
+    if(error&&error.code==="23514"&&LEGACY_TYPE[r.surveyType]){
+      const retry=await sb.from("survey_responses").insert({
+        ...base,survey_type:LEGACY_TYPE[r.surveyType],answers:{...r.answers,_survey:r.surveyType}});
+      error=retry.error;
+    }
     if(error)throw error;
     CACHE.push(r);
   } else { const a=readLocal();a.push(r);saveAll(a); }
 }
 function rowToResp(row){const a=row.answers||{};
-  return {id:row.id,surveyType:row.survey_type,department:row.department,country:row.country,
+  let key=a._survey||row.survey_type;                   // true survey key wins over the stored value
+  if(!SURVEYS[key])key=(key==="onb60")?"onb90":"onb30"; // legacy rows never break the dashboard
+  return {id:row.id,surveyType:key,department:row.department,country:row.country,
     employeeName:row.employee_name||a.empName||"—",     // works with or without the optional columns
     employeeEmail:row.employee_email||a.empEmail||"—",
     submittedAt:new Date(row.submitted_at).getTime(),answers:a};}
@@ -1371,8 +1381,17 @@ function attentionComments(data){const out=[];
   data.filter(r=>r.surveyType==="exit").forEach(r=>{const sc=r.answers.nps;if(sc==null||sc>6)return;
     ["raise","improve"].forEach(id=>{const v=r.answers[id];if(v&&String(v).trim())out.push({score:sc+"/10",sort:sc,survey:"Exit",dept:r.department,q:qLabel("exit",id),text:v});});});
   return out.sort((a,b)=>a.sort-b.sort).slice(0,8);}
-function stackedBarOpts(){return {...baseOpts(),plugins:{legend:{display:true,position:"bottom",labels:{color:axisColor(),font:{size:11},boxWidth:12,padding:10}}},scales:{x:{stacked:true,grid:{display:false},ticks:{color:axisColor(),font:{size:10}}},y:{stacked:true,beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}}}};}
-function stackedHBarOpts(){return {...baseOpts(),indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{stacked:true,beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}},y:{stacked:true,grid:{display:false},ticks:{color:axisColor(),font:{size:11}}}}};}
+/* stacked: the 2px gap is drawn in the surface colour — the spacer, not a border */
+function stackedBarOpts(){return {...baseOpts(),
+  plugins:{legend:legendOpts(),tooltip:tipOpts()},
+  datasets:{bar:{maxBarThickness:28,borderRadius:3,borderSkipped:false,borderWidth:2,borderColor:P().surface}},
+  scales:{x:{stacked:true,grid:{display:false},border:{color:gridColor()},ticks:{color:axisColor(),font:TICK}},
+          y:{stacked:true,beginAtZero:true,grid:{color:gridColor()},border:{display:false},ticks:{color:axisColor(),precision:0,font:TICK}}}};}
+function stackedHBarOpts(){return {...baseOpts(),indexAxis:"y",
+  plugins:{legend:{display:false},tooltip:tipOpts()},
+  datasets:{bar:{maxBarThickness:26,borderRadius:3,borderSkipped:false,borderWidth:2,borderColor:P().surface}},
+  scales:{x:{stacked:true,beginAtZero:true,grid:{color:gridColor()},border:{display:false},ticks:{color:axisColor(),precision:0,font:TICK}},
+          y:{stacked:true,grid:{display:false},border:{color:gridColor()},ticks:{color:axisColor(),font:LBL}}}};}
 
 function renderOverview(data){
   const el=document.getElementById("tab-overview");
@@ -1478,11 +1497,13 @@ function renderOverview(data){
     const vals=[];rows.forEach(r=>{const a=r.answers[qid];if(a)q.statements.forEach((st,i)=>{if(a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
     return vals.length?((avg(vals)-1)/6*100):null;};
   charts.cTrend=new Chart(cTrend,{type:"radar",data:{labels:themes.map(t=>t[1]),datasets:[
-    {label:"30-Day",data:themes.map(t=>favBy(o30,"onb30",t[0])),borderColor:cpOrange,backgroundColor:"rgba(214,65,15,.15)",borderWidth:2,pointBackgroundColor:cpOrange},
-    {label:"90-Day",data:themes.map(t=>favBy(o90,"onb90",t[0])),borderColor:pur,backgroundColor:"rgba(109,40,217,.15)",borderWidth:2,pointBackgroundColor:pur},
+    {label:"30-Day",data:themes.map(t=>favBy(o30,"onb30",t[0])),borderColor:cpOrange,backgroundColor:alpha(cpOrange,.10),pointBackgroundColor:cpOrange},
+    {label:"90-Day",data:themes.map(t=>favBy(o90,"onb90",t[0])),borderColor:pur,backgroundColor:alpha(pur,.10),pointBackgroundColor:pur},
   ]},options:radarOpts()});
 
-  charts.cType=new Chart(cType,{type:"doughnut",data:{labels:["30-Day","90-Day","Exit"],datasets:[{data:[o30.length,o90.length,ex.length],backgroundColor:[cpOrange,pur,warn],borderWidth:0}]},options:doughnutOpts()});
+  charts.cType=new Chart(cType,{type:"doughnut",data:{labels:["30-Day","90-Day","Exit"],
+    datasets:[{data:[o30.length,o90.length,ex.length],backgroundColor:[cpOrange,pur,warn]}]},
+    options:doughnutOpts(),plugins:[centreTotal]});
 
   const cc=countryChartData(data);
   charts.cCountry=new Chart(cCountry,{type:"bar",data:{labels:cc.map(x=>x[0]),datasets:[{data:cc.map(x=>x[1]),backgroundColor:"#1d4ed8",borderRadius:5}]},options:hbarOpts()});
@@ -1796,13 +1817,51 @@ const PAL={
 };
 function isDarkMode(){return matchMedia("(prefers-color-scheme:dark)").matches;}
 function P(){return isDarkMode()?PAL.dark:PAL.light;}
+function alpha(hex,a){const h=hex.replace("#","");const n=parseInt(h,16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;}
+/* doughnut centre total — the figure the chart is actually about */
+const centreTotal={id:"centreTotal",afterDraw(c,args,o){
+  const t=(c.data.datasets[0].data||[]).reduce((a,b)=>a+(b||0),0);
+  const {ctx,chartArea}=c;if(!chartArea)return;
+  const x=(chartArea.left+chartArea.right)/2, y=(chartArea.top+chartArea.bottom)/2;
+  ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";
+  ctx.fillStyle=isDarkMode()?"#f5f0ec":"#1c1917";
+  ctx.font='800 26px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  ctx.fillText(String(t),x,y-6);
+  ctx.fillStyle=P().ink;ctx.font='600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  ctx.fillText("RESPONSES",x,y+13);ctx.restore();
+}};
 function axisColor(){return P().ink;}
 function gridColor(){return P().grid;}
-function baseOpts(){return {responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}}};}
-function barOpts(){return {...baseOpts(),scales:{x:{grid:{display:false},ticks:{color:axisColor(),font:{size:10}}},y:{beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}}}};}
-function hbarOpts(){return {...baseOpts(),indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),font:{size:10}}},y:{grid:{display:false},ticks:{color:axisColor(),font:{size:11}}}}};}
-function doughnutOpts(){return {...baseOpts(),cutout:'62%',plugins:{legend:{display:true,position:'bottom',labels:{color:axisColor(),font:{size:11},boxWidth:12,padding:12}}}};}
-function radarOpts(){return {responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:true,position:'bottom',labels:{color:axisColor(),font:{size:11},boxWidth:12}}},scales:{r:{min:0,max:100,grid:{color:gridColor()},angleLines:{color:gridColor()},pointLabels:{color:axisColor(),font:{size:10}},ticks:{display:false}}}};}
+/* Mark specs: bars ≤24px with a 4px rounded data-end square at the baseline;
+   2px surface gap between touching fills; 2px surface ring on markers;
+   hairline solid grid; text always in ink tokens, never the series colour. */
+const TICK={size:10}, LBL={size:11};
+function tipOpts(){const d=isDarkMode();return {
+  backgroundColor:d?"#2b2320":"#ffffff", titleColor:d?"#f5f0ec":"#1c1917", bodyColor:d?"#c4bab2":"#57534e",
+  borderColor:d?"rgba(255,255,255,.14)":"rgba(0,0,0,.10)", borderWidth:1,
+  padding:10, cornerRadius:8, boxPadding:5, usePointStyle:true, titleFont:{size:12,weight:"700"}, bodyFont:{size:12}
+};}
+function legendOpts(){return {display:true,position:"bottom",labels:{color:axisColor(),font:LBL,boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:"circle",padding:14}};}
+function baseOpts(){return {responsive:true,maintainAspectRatio:false,animation:false,
+  interaction:{mode:"nearest",intersect:false},                       // forgiving hit targets
+  plugins:{legend:{display:false},tooltip:tipOpts()}};}
+function barOpts(){return {...baseOpts(),
+  datasets:{bar:{maxBarThickness:24,borderRadius:4,borderSkipped:"bottom"}},
+  scales:{x:{grid:{display:false},border:{color:gridColor()},ticks:{color:axisColor(),font:TICK}},
+          y:{beginAtZero:true,grid:{color:gridColor(),lineWidth:1},border:{display:false},ticks:{color:axisColor(),precision:0,font:TICK}}}};}
+function hbarOpts(){return {...baseOpts(),indexAxis:"y",
+  datasets:{bar:{maxBarThickness:24,borderRadius:4,borderSkipped:"start"}},
+  scales:{x:{beginAtZero:true,grid:{color:gridColor(),lineWidth:1},border:{display:false},ticks:{color:axisColor(),font:TICK}},
+          y:{grid:{display:false},border:{color:gridColor()},ticks:{color:axisColor(),font:LBL}}}};}
+function doughnutOpts(){return {...baseOpts(),cutout:"68%",
+  plugins:{legend:legendOpts(),tooltip:tipOpts()},
+  elements:{arc:{borderWidth:2,borderColor:P().surface,borderRadius:3}}};}   // 2px surface gap, not a stroke
+function radarOpts(){return {...baseOpts(),
+  plugins:{legend:legendOpts(),tooltip:tipOpts()},
+  elements:{line:{borderWidth:2},point:{radius:4,hoverRadius:6,borderWidth:2,borderColor:P().surface}}, // ≥8px marker + surface ring
+  scales:{r:{min:0,max:100,grid:{color:gridColor()},angleLines:{color:gridColor()},
+    pointLabels:{color:axisColor(),font:LBL},ticks:{display:false,stepSize:25}}}};}
 
 /* ============================================================
    UTILS
