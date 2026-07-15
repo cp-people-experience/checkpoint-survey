@@ -189,7 +189,9 @@ img{max-width:100%}
 .admin-tab.on{color:var(--cp);border-bottom-color:var(--cp)}
 .admin-tab:hover:not(.on){color:var(--text2)}
 
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:14px 16px;margin-bottom:16px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 16px;margin-bottom:16px;position:sticky;top:8px;z-index:15;backdrop-filter:blur(8px);background:color-mix(in srgb,var(--card) 92%,transparent)}
+.tab-count{display:inline-block;font-size:10px;font-weight:800;background:var(--card2);border:1px solid var(--border);color:var(--text3);border-radius:20px;padding:0 6px;margin-left:5px;vertical-align:middle}
+.admin-tab.on .tab-count{background:var(--cp-l);border-color:var(--cp);color:var(--cp)}
 .filters .fg{display:flex;flex-direction:column;gap:4px}
 .filters label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
 .filters select{padding:8px 11px;font:inherit;font-size:13px;border:1px solid var(--border2);border-radius:var(--rs);background:var(--card);color:var(--text);min-width:130px}
@@ -213,12 +215,31 @@ img{max-width:100%}
 .empty .em{font-size:36px;display:block;margin-bottom:8px}
 
 /* likert breakdown bars */
-.lk-list{display:flex;flex-direction:column;gap:11px}
-.lk-item .lk-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;gap:10px}
+.lk-list{display:flex;flex-direction:column;gap:14px}
+.lk-item .lk-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:10px}
 .lk-item .lk-stmt{font-size:12px;color:var(--text);line-height:1.35;flex:1}
-.lk-item .lk-score{font-size:13px;font-weight:800;flex-shrink:0}
+.lk-item .lk-score{font-size:13px;font-weight:800;flex-shrink:0;font-variant-numeric:tabular-nums}
 .lk-track{height:9px;background:var(--border);border-radius:6px;overflow:hidden}
 .lk-fill{height:100%;border-radius:6px;transition:width .5s}
+/* 100% stacked distribution (2px surface gaps between segments per mark spec) */
+.dist{display:flex;gap:2px;height:13px;align-items:stretch}
+.dist i{display:block;min-width:2px;border-radius:2px;transition:opacity .12s}
+.dist i:first-child{border-radius:4px 2px 2px 4px}
+.dist i:last-child{border-radius:2px 4px 4px 2px}
+.dist i:hover{opacity:.72}
+.dist-n{font-size:10.5px;color:var(--text3);margin-top:4px;font-variant-numeric:tabular-nums}
+.scale-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.scale-legend span{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text2)}
+.scale-legend i{width:10px;height:10px;border-radius:2px}
+
+/* heatmap */
+.hm-wrap{overflow-x:auto}
+.hm{border-collapse:separate;border-spacing:2px;width:100%;min-width:520px}
+.hm th{font-size:10px;font-weight:700;color:var(--text3);padding:4px 6px;text-align:center;line-height:1.2;vertical-align:bottom}
+.hm th.rowh{text-align:left;font-weight:600;color:var(--text2);font-size:11px;min-width:150px;white-space:nowrap}
+.hm td{text-align:center;padding:0}
+.hm .cell{border-radius:4px;height:30px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.hm .cell.na{background:var(--card2);color:var(--text3);font-weight:400}
 
 /* ===== Overview analytics ===== */
 .ov-head{display:flex;align-items:center;gap:10px;margin:24px 0 12px}
@@ -383,10 +404,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
         <div class="em" id="thEmoji">🎉</div>
         <h2 id="thTitle">Thank you!</h2>
         <p id="thMsg"></p>
-        <div class="form-nav" style="justify-content:center">
-          <button class="btn btn-ghost" onclick="printResponse()">🖨️ Print my answers</button>
-          <button class="btn btn-primary" id="thanksHome" onclick="startSurvey(LOCK_SURVEY)">Submit another response</button>
-        </div>
+        <p style="font-size:12px;color:var(--text3);margin-top:-6px">You can now close this page.</p>
       </div>
     </div>
   </div>
@@ -1035,9 +1053,17 @@ function likertAvg(rows,qid,stmtIdx,reverse){
 function favColor(pct){return pct>=70?'var(--ok)':pct>=50?'var(--warn)':'var(--err)';}
 function scoreClass(v,goodHi=true){if(goodHi)return v>=70?'good':v>=50?'mid':'bad';return v<=30?'good':v<=50?'mid':'bad';}
 
+function updateTabCounts(data){
+  const n={onb30:0,onb90:0,exit:0};data.forEach(r=>{if(n[r.surveyType]!==undefined)n[r.surveyType]++;});
+  const set=(tab,v)=>{const b=document.querySelector(`.admin-tab[data-tab="${tab}"]`);if(!b)return;
+    let c=b.querySelector(".tab-count");if(!c){c=document.createElement("span");c.className="tab-count";b.appendChild(c);}
+    c.textContent=v;};
+  set("overview",data.length);set("onb30",n.onb30);set("onb90",n.onb90);set("exit",n.exit);set("responses",data.length);
+}
 function renderDash(){
   destroyCharts();
   const data=filtered();
+  updateTabCounts(data);
   if(curTab==="overview")renderOverview(data);
   else if(curTab==="onb30")renderSurveyTab(data,"onb30","tab-onb30");
   else if(curTab==="onb90")renderSurveyTab(data,"onb90","tab-onb90");
@@ -1317,7 +1343,9 @@ function stackedHBarOpts(){return {...baseOpts(),indexAxis:"y",plugins:{legend:{
 function renderOverview(data){
   const el=document.getElementById("tab-overview");
   if(!data.length){el.innerHTML=emptyState();return;}
-  const cpOrange="#D6410F",pur="#6d28d9",warn="#b45309",green="#2e7d32",red="#c62828",gray="#9ca3af";
+  const pal=P();
+  const cpOrange=pal.cat.onb30, pur=pal.cat.onb90, warn=pal.cat.exit;   // categorical: fixed slot order
+  const green=pal.likert[0], gray=pal.likert[3], red=pal.likert[6];      // diverging: promoter ↔ detractor
   const o30=data.filter(r=>r.surveyType==="onb30"),o90=data.filter(r=>r.surveyType==="onb90"),ex=data.filter(r=>r.surveyType==="exit");
   const onb=[...o30,...o90];
   const enps30=npsScore(o30.map(r=>r.answers.enps).filter(v=>v!=null));   // 30-day only (90-day has no eNPS)
@@ -1355,6 +1383,7 @@ function renderOverview(data){
   h+=`<div class="charts">
     <div class="card chart-card"><h3>eNPS composition</h3><div class="ch-sub">Promoters vs passives vs detractors (30-day &amp; exit)</div><div class="chart-wrap"><canvas id="cComp"></canvas></div>
       <div class="legend"><span><i style="background:${green}"></i>Promoters (9–10)</span><span><i style="background:${gray}"></i>Passives (7–8)</span><span><i style="background:${red}"></i>Detractors (0–6)</span></div></div>
+    <div class="card chart-card"><h3>Overall favourability by country</h3><div class="ch-sub">Average across all onboarding statements</div><div class="chart-wrap" style="height:${deptWrapH2(countryChartData(data).length)}"><canvas id="cCtryFav"></canvas></div></div>
     <div class="card chart-card"><h3>Engagement distribution</h3><div class="ch-sub">Self-rated engagement (0–10), 30-day cohort</div><div class="chart-wrap"><canvas id="cEng"></canvas></div></div>
     <div class="card chart-card wide"><h3>Response volume over time</h3><div class="ch-sub">Submissions per month by survey</div><div class="chart-wrap"><canvas id="cTime"></canvas></div></div>
     <div class="card chart-card wide"><h3>30-Day vs 90-Day sentiment</h3><div class="ch-sub">Avg favourability % on themes covered by both surveys</div><div class="chart-wrap"><canvas id="cTrend"></canvas></div></div>
@@ -1393,8 +1422,14 @@ function renderOverview(data){
     {label:"Detractors",data:compCats.map(x=>x[1].d),backgroundColor:red,borderRadius:4,stack:"s"},
   ]},options:stackedHBarOpts()});
 
+  // one series → one colour (colouring bars by their own value double-encodes and fails the checks)
   const engBuckets=Array(11).fill(0);o30.forEach(r=>{if(r.answers.engage!=null)engBuckets[r.answers.engage]++;});
-  charts.cEng=new Chart(cEng,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{data:engBuckets,backgroundColor:engBuckets.map((_,i)=>i>=7?green:i>=4?warn:red),borderRadius:5}]},options:barOpts()});
+  charts.cEng=new Chart(cEng,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{label:"Respondents",data:engBuckets,backgroundColor:pal.cat.onb30,borderRadius:4}]},options:barOpts()});
+
+  // favourability by country (onboarding only)
+  const cf=countryChartData(onb).map(x=>[x[0],overallFavPct(onb.filter(r=>r.country===x[0]))]).filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);
+  charts.cCtryFav=new Chart(cCtryFav,{type:"bar",data:{labels:cf.map(x=>x[0]),datasets:[{label:"Favourability %",data:cf.map(x=>+x[1].toFixed(1)),backgroundColor:cf.map(x=>seqColor(x[1])),borderRadius:4}]},
+    options:{...hbarOpts(),scales:{...hbarOpts().scales,x:{...hbarOpts().scales.x,max:100,title:{display:true,text:"% favourable",color:axisColor(),font:{size:10}}}}}});
 
   const ms=monthSeries(data);
   charts.cTime=new Chart(cTime,{type:"bar",data:{labels:ms.labels,datasets:[
@@ -1440,19 +1475,30 @@ function renderSurveyTab(data,key,elId){
     ${scaleQ?kpi("Avg engagement",eng==null?"—":eng.toFixed(1)+"/10","Self-rated",eng==null?"":scoreClass(eng*10)):""}
     ${starQ?kpi(key==="onb90"?"Overall rating":"Team support",stars==null?"—":stars.toFixed(1)+"★",starQ.label.length>40?starQ.label.slice(0,40)+"…":starQ.label,stars==null?"":scoreClass(stars*20)):""}
   </div>`;
-  // Likert favourability breakdown across all matrix questions
-  h+=`<div class="card chart-card wide"><h3>Statement favourability</h3><div class="ch-sub">Average per statement (100% = most favourable; reverse-worded items are inverted)</div><div class="lk-list">`;
+  // Per-statement response distribution (shows the spread, not just the mean)
+  const pal=P();
+  h+=`<div class="card chart-card wide"><h3>How people answered, statement by statement</h3>
+    <div class="ch-sub">Each bar is the full distribution of answers. Reverse-worded items are inverted so blue always means favourable.</div>
+    <div class="scale-legend">${pal.likert.map((c,i)=>`<span><i style="background:${c}"></i>${LIKERT[i]}</span>`).join("")}</div>
+    <div class="lk-list">`;
   SURVEYS[key].sections.forEach(sec=>{
     sec.questions.filter(q=>q.type==="likert").forEach(q=>{
+      const SC=q.scale||LIKERT;
       q.statements.forEach((st,i)=>{
-        const a=likertAvg(rows,q.id,i);if(a==null)return;
-        let v=st.reverse?8-a:a;const pct=(v-1)/6*100;
-        h+=`<div class="lk-item"><div class="lk-top"><div class="lk-stmt">${st.t}${st.reverse?' <span style="color:var(--warn);font-size:10px">(reverse)</span>':''}</div><div class="lk-score" style="color:${favColor(pct)}">${pct.toFixed(0)}%</div></div>
-          <div class="lk-track"><div class="lk-fill" style="width:${pct}%;background:${favColor(pct)}"></div></div></div>`;
+        const d=likertDist(rows,q.id,i,st.reverse);if(!d.n)return;
+        const pct=(d.avg-1)/6*100;
+        h+=`<div class="lk-item">
+          <div class="lk-top"><div class="lk-stmt">${esc(st.t)}${st.reverse?' <span style="color:var(--text3);font-size:10px">(reverse-worded)</span>':''}</div>
+            <div class="lk-score" style="color:${favColor(pct)}">${pct.toFixed(0)}%</div></div>
+          <div class="dist">${d.c.map((n,ci)=>n?`<i style="background:${pal.likert[ci]};flex:${n}" title="${SC[ci]}: ${n} (${Math.round(n/d.n*100)}%)"></i>`:"").join("")}</div>
+          <div class="dist-n">${d.n} response${d.n===1?"":"s"} · most common: ${SC[d.c.indexOf(Math.max(...d.c))]}</div>
+        </div>`;
       });
     });
   });
   h+=`</div></div>`;
+  // Department × section heatmap
+  h+=deptHeatmap(rows,key);
   h+=`<div class="charts">
     ${npsQ?`<div class="card chart-card"><h3>eNPS distribution</h3><div class="ch-sub">0–10 recommendation score</div><div class="chart-wrap"><canvas id="cS_nps"></canvas></div></div>`:``}
     ${starQ?`<div class="card chart-card"><h3>Star rating distribution</h3><div class="ch-sub">${esc(starQ.label)}</div><div class="chart-wrap"><canvas id="cS_star"></canvas></div></div>`:``}
@@ -1461,16 +1507,17 @@ function renderSurveyTab(data,key,elId){
   // open-text themes
   h+=renderOpenText(rows,key);
   el.innerHTML=h;
+  const kc=P().cat[key]||P().cat.onb30;   // colour follows the survey (the entity), not the rank
   if(npsQ){
     const npsBuckets=Array(11).fill(0);rows.forEach(r=>{const v=r.answers[npsQ.id];if(v!=null)npsBuckets[v]++;});
-    charts.cS_nps=new Chart(cS_nps,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{data:npsBuckets,backgroundColor:npsBuckets.map((_,i)=>i>=9?"#2e7d32":i>=7?"#b45309":"#c62828"),borderRadius:5}]},options:barOpts()});
+    charts.cS_nps=new Chart(cS_nps,{type:"bar",data:{labels:[...Array(11).keys()],datasets:[{label:"Respondents",data:npsBuckets,backgroundColor:kc,borderRadius:4}]},options:barOpts()});
   }
   if(starQ){
     const starBuckets=[0,0,0,0,0];rows.forEach(r=>{const v=r.answers[starQ.id];if(v>=1&&v<=5)starBuckets[v-1]++;});
-    charts.cS_star=new Chart(cS_star,{type:"bar",data:{labels:["1★","2★","3★","4★","5★"],datasets:[{data:starBuckets,backgroundColor:["#c62828","#c62828","#b45309","#2e7d32","#2e7d32"],borderRadius:5}]},options:barOpts()});
+    charts.cS_star=new Chart(cS_star,{type:"bar",data:{labels:["1★","2★","3★","4★","5★"],datasets:[{label:"Respondents",data:starBuckets,backgroundColor:kc,borderRadius:4}]},options:barOpts()});
   }
   const dc=deptChartData(rows);
-  charts.cS_dept=new Chart(cS_dept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{data:dc.map(x=>x[1]),backgroundColor:SURVEYS[key].iconColor==="var(--cp)"?"#D6410F":"#6d28d9",borderRadius:5}]},options:hbarOpts()});
+  charts.cS_dept=new Chart(cS_dept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{label:"Responses",data:dc.map(x=>x[1]),backgroundColor:kc,borderRadius:4}]},options:hbarOpts()});
 }
 // average favourability across all likert statements of one survey
 function overallFavPct2(rows,key){
@@ -1480,6 +1527,52 @@ function overallFavPct2(rows,key){
       if(a&&a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
   }));
   return vals.length?((avg(vals)-1)/6*100):null;
+}
+/* distribution of answers for one statement; c[0]=most favourable … c[6]=least */
+function likertDist(rows,qid,i,reverse){
+  const c=[0,0,0,0,0,0,0];let sum=0,n=0;
+  rows.forEach(r=>{const a=r.answers[qid];
+    if(a&&a[i]!==undefined){let v=a[i];if(reverse)v=8-v;c[7-v]++;sum+=v;n++;}});
+  return {c,n,avg:n?sum/n:null};
+}
+/* favourability of every likert statement in one section, for one set of rows */
+function sectionFav(rows,sec){
+  const vals=[];
+  sec.questions.filter(q=>q.type==="likert").forEach(q=>{
+    q.statements.forEach((st,i)=>{rows.forEach(r=>{const a=r.answers[q.id];
+      if(a&&a[i]!==undefined){let v=a[i];if(st.reverse)v=8-v;vals.push(v);}});});
+  });
+  return vals.length?((avg(vals)-1)/6*100):null;
+}
+/* sequential blue scale for the heatmap (low → high favourability) */
+function seqColor(pct){const s=P().seq;return s[Math.min(s.length-1,Math.max(0,Math.round(pct/100*(s.length-1))))];}
+function deptHeatmap(rows,key){
+  const secs=SURVEYS[key].sections.filter(s=>s.questions.some(q=>q.type==="likert"));
+  const depts=deptChartData(rows).map(x=>x[0]);
+  if(!secs.length||depts.length<2)return "";
+  const pal=P();
+  let h=`<div class="card chart-card wide" style="margin-top:14px"><h3>Where each department struggles</h3>
+    <div class="ch-sub">Favourability % by department and theme — darker is better. Hover a cell for detail; grey means no responses yet.</div>
+    <div class="hm-wrap"><table class="hm"><thead><tr><th class="rowh"></th>
+      ${secs.map(s=>`<th>${esc(s.tag.replace(/^(Finance|System|Career|HR)[:s]*/,"").slice(0,22))}</th>`).join("")}</tr></thead><tbody>`;
+  depts.forEach(d=>{
+    const dr=rows.filter(r=>r.department===d);
+    h+=`<tr><th class="rowh" title="${esc(d)}">${esc(d.length>24?d.slice(0,23)+"…":d)} <span style="color:var(--text3);font-weight:400">(${dr.length})</span></th>`;
+    secs.forEach(s=>{
+      const f=sectionFav(dr,s);
+      if(f==null){h+=`<td><div class="cell na">–</div></td>`;return;}
+      const bg=seqColor(f);
+      const ink=f>=55?"#ffffff":(isDarkMode()?"#e8e6e1":"#0b0b0b"); // keep the number readable on any step
+      h+=`<td><div class="cell" style="background:${bg};color:${ink}" title="${esc(d)} · ${esc(s.tag)}: ${f.toFixed(0)}% favourable (${dr.length} response${dr.length===1?"":"s"})">${f.toFixed(0)}</div></td>`;
+    });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div>
+    <div class="scale-legend" style="border:none;margin:12px 0 0;padding:0;justify-content:center">
+      <span style="color:var(--text3)">Less favourable</span>
+      ${pal.seq.map(c=>`<i style="background:${c};width:22px;height:10px;border-radius:2px"></i>`).join("")}
+      <span style="color:var(--text3)">More favourable</span></div></div>`;
+  return h;
 }
 function deptChartData(rows){return DEPTS.map(d=>[d,rows.filter(r=>r.department===d).length]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);}
 function deptWrapH(rows){return deptWrapH2(deptChartData(rows).length);}
@@ -1501,15 +1594,18 @@ function renderExitTab(data){
     <div class="card chart-card"><h3>What attracted them elsewhere</h3><div class="ch-sub">Weighted rank of pull factors</div><div class="chart-wrap"><canvas id="cAttract"></canvas></div></div>
   </div>`;
   h+=`<div class="card chart-card wide"><h3>Experience favourability</h3><div class="ch-sub">Average agreement per statement</div><div class="lk-list">`;
-  const expQ=exitSections().flatMap(s=>s.questions).find(q=>q.id==="exp");
-  expQ.statements.forEach((st,i)=>{const a=likertAvg(rows,"exp",i);if(a==null)return;const pct=(a-1)/6*100;
-    h+=`<div class="lk-item"><div class="lk-top"><div class="lk-stmt">${st.t}</div><div class="lk-score" style="color:${favColor(pct)}">${pct.toFixed(0)}%</div></div><div class="lk-track"><div class="lk-fill" style="width:${pct}%;background:${favColor(pct)}"></div></div></div>`;});
+  const expQ=SURVEYS.exit.sections.flatMap(s=>s.questions).find(q=>q.id==="exp");
+  const epal=P();
+  if(expQ)expQ.statements.forEach((st,i)=>{const d=likertDist(rows,"exp",i,st.reverse);if(!d.n)return;const pct=(d.avg-1)/6*100;
+    h+=`<div class="lk-item"><div class="lk-top"><div class="lk-stmt">${esc(st.t)}</div><div class="lk-score" style="color:${favColor(pct)}">${pct.toFixed(0)}%</div></div>
+      <div class="dist">${d.c.map((n,ci)=>n?`<i style="background:${epal.likert[ci]};flex:${n}" title="${LIKERT[ci]}: ${n}"></i>`:"").join("")}</div>
+      <div class="dist-n">${d.n} response${d.n===1?"":"s"}</div></div>`;});
   h+=`</div></div>`;
   h+=renderOpenText(rows,"exit");
   el.innerHTML=h;
   const lw=factorWeights(rows,"rankLeave",LEAVE),aw=factorWeights(rows,"rankAttract",ATTRACT);
-  charts.cLeave=new Chart(cLeave,{type:"bar",data:{labels:lw.map(x=>x[0]),datasets:[{data:lw.map(x=>x[1]),backgroundColor:"#b45309",borderRadius:5}]},options:hbarOpts()});
-  charts.cAttract=new Chart(cAttract,{type:"bar",data:{labels:aw.map(x=>x[0]),datasets:[{data:aw.map(x=>x[1]),backgroundColor:"#1d4ed8",borderRadius:5}]},options:hbarOpts()});
+  charts.cLeave=new Chart(cLeave,{type:"bar",data:{labels:lw.map(x=>x[0]),datasets:[{label:"Weighted score",data:lw.map(x=>x[1]),backgroundColor:P().cat.exit,borderRadius:4}]},options:hbarOpts()});
+  charts.cAttract=new Chart(cAttract,{type:"bar",data:{labels:aw.map(x=>x[0]),datasets:[{label:"Weighted score",data:aw.map(x=>x[1]),backgroundColor:P().cat.onb30,borderRadius:4}]},options:hbarOpts()});
 }
 function factorWeights(rows,qid,opts){
   const w={};opts.forEach(o=>w[o]=0);
@@ -1624,8 +1720,30 @@ function closeModal(){document.getElementById("modalOv").classList.remove("on");
 /* ============================================================
    CHART OPTIONS
    ============================================================ */
-function axisColor(){return getComputedStyle(document.body).getPropertyValue('--text3')||'#888';}
-function gridColor(){return matchMedia('(prefers-color-scheme:dark)').matches?'rgba(255,255,255,.07)':'rgba(0,0,0,.06)';}
+/* ============================================================
+   DATA-VIZ PALETTE — validated with the dataviz skill's checker.
+   Likert is DIVERGING (agree ↔ disagree) => blue / neutral gray / red,
+   never green→red (that fails red-green colour blindness).
+   Categorical slots are assigned in fixed order and never cycled.
+   ============================================================ */
+const PAL={
+  light:{ // surface #ffffff — CVD worst adjacent ΔE 47.2
+    likert:["#1c5cab","#2a78d6","#86b6ef","#9c9a92","#eda3a3","#e34948","#a51f1f"], // value 7→1
+    cat:{onb30:"#2a78d6",onb90:"#1baf7a",exit:"#eda100"},
+    seq:["#cde2fb","#9ec5f4","#6da7ec","#3987e5","#256abf","#184f95","#0d366b"],    // low→high
+    grid:"#e1e0d9", ink:"#898781", surface:"#ffffff"
+  },
+  dark:{  // surface #211a16 — steps selected for the dark band, not auto-flipped
+    likert:["#9ec5f4","#5598e7","#2a78d6","#6b6a64","#c23b3b","#e66767","#f0b4b4"],
+    cat:{onb30:"#3987e5",onb90:"#199e70",exit:"#c98500"},
+    seq:["#0d366b","#184f95","#256abf","#3987e5","#6da7ec","#9ec5f4","#cde2fb"],
+    grid:"#2c2c2a", ink:"#898781", surface:"#211a16"
+  }
+};
+function isDarkMode(){return matchMedia("(prefers-color-scheme:dark)").matches;}
+function P(){return isDarkMode()?PAL.dark:PAL.light;}
+function axisColor(){return P().ink;}
+function gridColor(){return P().grid;}
 function baseOpts(){return {responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false}}};}
 function barOpts(){return {...baseOpts(),scales:{x:{grid:{display:false},ticks:{color:axisColor(),font:{size:10}}},y:{beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),precision:0,font:{size:10}}}}};}
 function hbarOpts(){return {...baseOpts(),indexAxis:'y',scales:{x:{beginAtZero:true,grid:{color:gridColor()},ticks:{color:axisColor(),font:{size:10}}},y:{grid:{display:false},ticks:{color:axisColor(),font:{size:11}}}}};}
