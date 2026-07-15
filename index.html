@@ -1481,8 +1481,8 @@ function renderOverview(data){
 
   // favourability by country (onboarding only)
   const cf=countryChartData(onb).map(x=>[x[0],overallFavPct(onb.filter(r=>r.country===x[0]))]).filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);
-  charts.cCtryFav=new Chart(cCtryFav,{type:"bar",data:{labels:cf.map(x=>x[0]),datasets:[{label:"Favourability %",data:cf.map(x=>+x[1].toFixed(1)),backgroundColor:cf.map(x=>seqColor(x[1])),borderRadius:4}]},
-    options:{...hbarOpts(),scales:{...hbarOpts().scales,x:{...hbarOpts().scales.x,max:100,title:{display:true,text:"% favourable",color:axisColor(),font:{size:10}}}}}});
+  charts.cCtryFav=new Chart(cCtryFav,{type:"bar",data:{labels:cf.map(x=>x[0]),datasets:[{label:"Favourability",data:cf.map(x=>+x[1].toFixed(1)),backgroundColor:cf.map(x=>seqColor(x[1]))}]},
+    options:hbarLabeled({suffix:"%",decimals:0},100),plugins:[valueTip]});
 
   const ms=monthSeries(data);
   charts.cTime=new Chart(cTime,{type:"bar",data:{labels:ms.labels,datasets:[
@@ -1506,10 +1506,12 @@ function renderOverview(data){
     options:doughnutOpts(),plugins:[centreTotal]});
 
   const cc=countryChartData(data);
-  charts.cCountry=new Chart(cCountry,{type:"bar",data:{labels:cc.map(x=>x[0]),datasets:[{data:cc.map(x=>x[1]),backgroundColor:"#1d4ed8",borderRadius:5}]},options:hbarOpts()});
+  charts.cCountry=new Chart(cCountry,{type:"bar",data:{labels:cc.map(x=>x[0]),datasets:[{label:"Responses",data:cc.map(x=>x[1]),backgroundColor:pal.cat.onb30}]},
+    options:hbarLabeled({}),plugins:[valueTip]});
 
   const dc=deptChartData(data);
-  charts.cDept=new Chart(cDept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{data:dc.map(x=>x[1]),backgroundColor:cpOrange,borderRadius:5}]},options:hbarOpts()});
+  charts.cDept=new Chart(cDept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{label:"Responses",data:dc.map(x=>x[1]),backgroundColor:pal.cat.onb30}]},
+    options:hbarLabeled({}),plugins:[valueTip]});
 }
 
 function renderSurveyTab(data,key,elId){
@@ -1572,7 +1574,8 @@ function renderSurveyTab(data,key,elId){
     charts.cS_star=new Chart(cS_star,{type:"bar",data:{labels:["1★","2★","3★","4★","5★"],datasets:[{label:"Respondents",data:starBuckets,backgroundColor:kc,borderRadius:4}]},options:barOpts()});
   }
   const dc=deptChartData(rows);
-  charts.cS_dept=new Chart(cS_dept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{label:"Responses",data:dc.map(x=>x[1]),backgroundColor:kc,borderRadius:4}]},options:hbarOpts()});
+  charts.cS_dept=new Chart(cS_dept,{type:"bar",data:{labels:dc.map(x=>x[0]),datasets:[{label:"Responses",data:dc.map(x=>x[1]),backgroundColor:kc}]},
+    options:hbarLabeled({}),plugins:[valueTip]});
 }
 // average favourability across all likert statements of one survey
 function overallFavPct2(rows,key){
@@ -1659,8 +1662,10 @@ function renderExitTab(data){
   h+=renderOpenText(rows,"exit");
   el.innerHTML=h;
   const lw=factorWeights(rows,"rankLeave",LEAVE),aw=factorWeights(rows,"rankAttract",ATTRACT);
-  charts.cLeave=new Chart(cLeave,{type:"bar",data:{labels:lw.map(x=>x[0]),datasets:[{label:"Weighted score",data:lw.map(x=>x[1]),backgroundColor:P().cat.exit,borderRadius:4}]},options:hbarOpts()});
-  charts.cAttract=new Chart(cAttract,{type:"bar",data:{labels:aw.map(x=>x[0]),datasets:[{label:"Weighted score",data:aw.map(x=>x[1]),backgroundColor:P().cat.onb30,borderRadius:4}]},options:hbarOpts()});
+  charts.cLeave=new Chart(cLeave,{type:"bar",data:{labels:lw.map(x=>x[0]),datasets:[{label:"Weighted score",data:lw.map(x=>x[1]),backgroundColor:P().cat.exit}]},
+    options:hbarLabeled({}),plugins:[valueTip]});
+  charts.cAttract=new Chart(cAttract,{type:"bar",data:{labels:aw.map(x=>x[0]),datasets:[{label:"Weighted score",data:aw.map(x=>x[1]),backgroundColor:P().cat.onb30}]},
+    options:hbarLabeled({}),plugins:[valueTip]});
 }
 function factorWeights(rows,qid,opts){
   const w={};opts.forEach(o=>w[o]=0);
@@ -1852,8 +1857,34 @@ function barOpts(){return {...baseOpts(),
           y:{beginAtZero:true,grid:{color:gridColor(),lineWidth:1},border:{display:false},ticks:{color:axisColor(),precision:0,font:TICK}}}};}
 function hbarOpts(){return {...baseOpts(),indexAxis:"y",
   datasets:{bar:{maxBarThickness:24,borderRadius:4,borderSkipped:"start"}},
-  scales:{x:{beginAtZero:true,grid:{color:gridColor(),lineWidth:1},border:{display:false},ticks:{color:axisColor(),font:TICK}},
+  scales:{x:{beginAtZero:true,grid:{color:gridColor(),lineWidth:1},border:{display:false},ticks:{color:axisColor(),precision:0,font:TICK}},
           y:{grid:{display:false},border:{color:gridColor()},ticks:{color:axisColor(),font:LBL}}}};}
+/* Direct value labels at the bar tip. With the value on the mark the x-axis
+   becomes redundant clutter, so it goes — "direct labels before gridlines". */
+/* NB: keep this config plain data — Chart.js invokes function-valued options
+   as "scriptable options", so a formatter function here would be called by
+   Chart.js with its own context instead of our value. */
+const valueTip={id:"valueTip",afterDatasetsDraw(c){
+  const cfg=c.options.plugins&&c.options.plugins.valueTip;if(!cfg)return;
+  const {ctx}=c;ctx.save();
+  ctx.font='700 11px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+  ctx.textBaseline="middle";ctx.textAlign="left";
+  ctx.fillStyle=isDarkMode()?"#c4bab2":"#57534e";           // ink token — never the series colour
+  c.data.datasets.forEach((ds,di)=>{
+    const meta=c.getDatasetMeta(di);if(meta.hidden)return;
+    meta.data.forEach((el,i)=>{const v=ds.data[i];if(v==null)return;
+      const txt=(cfg.decimals!=null?Number(v).toFixed(cfg.decimals):String(v))+(cfg.suffix||"");
+      ctx.fillText(txt,el.x+7,el.y);});
+  });
+  ctx.restore();
+}};
+/* clean horizontal bars: no x-axis, value at the tip */
+function hbarLabeled(cfg,max){const o=hbarOpts();
+  return {...o,
+    layout:{padding:{right:44}},
+    plugins:{...o.plugins,valueTip:cfg||{}},
+    scales:{x:{beginAtZero:true,max:max,grid:{display:false},border:{display:false},ticks:{display:false}},
+            y:o.scales.y}};}
 function doughnutOpts(){return {...baseOpts(),cutout:"68%",
   plugins:{legend:legendOpts(),tooltip:tipOpts()},
   elements:{arc:{borderWidth:2,borderColor:P().surface,borderRadius:3}}};}   // 2px surface gap, not a stroke
