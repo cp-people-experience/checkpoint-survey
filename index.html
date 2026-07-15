@@ -557,6 +557,8 @@ const SUPABASE_URL     = "https://nbxrcswxtrvupsiznltp.supabase.co";
 const SUPABASE_ANON_KEY= "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ieHJjc3d4dHJ2dXBzaXpubHRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMjU4MTUsImV4cCI6MjA5OTYwMTgxNX0.yCNGXr1bEqkgazZ_rINfbRdw5om0FY0hPLp2sCvjqWQ";
 const HR_REQUIRES_LOGIN= true;   // true = HR must sign in (recommended, keeps data private).
                                   // false = HR opens dashboard with the access code below (quick, less secure).
+const HR_LOGIN_EMAIL   = "shos@checkpoint.com"; // HR account used to sign in. HR only types the password;
+                                                 // this email is filled in automatically (no email field shown).
 const HR_ACCESS_CODE   = "hr2026";
 /* ============================================================ */
 
@@ -790,9 +792,9 @@ function gateInit(){
   const emailEl=document.getElementById("hrEmail"),passEl=document.getElementById("hrPass");
   const msg=document.getElementById("gateMsg"),hint=document.getElementById("gateHint"),btn=document.getElementById("gateBtn");
   if(CLOUD && HR_REQUIRES_LOGIN){
-    emailEl.style.display="block";passEl.placeholder="Password";
-    msg.textContent="Sign in with your HR account to view all responses.";
-    btn.textContent="Sign in";hint.innerHTML="Use the HR login you created in Supabase.";
+    emailEl.style.display="none";passEl.placeholder="Password";
+    msg.textContent="Enter the HR password to view all responses.";
+    btn.textContent="Sign in";hint.innerHTML="";
   } else if(CLOUD){
     emailEl.style.display="none";
     msg.textContent="Connected to your live database. Enter the HR access code to continue.";
@@ -813,11 +815,11 @@ async function checkPass(){
   };
   try{
     if(CLOUD && HR_REQUIRES_LOGIN){
-      const email=document.getElementById("hrEmail").value.trim(),pw=document.getElementById("hrPass").value;
-      if(!email||!pw){toast("Enter your email and password");return;}
+      const pw=document.getElementById("hrPass").value;
+      if(!pw){toast("Enter the HR password");return;}
       btn.disabled=true;btn.textContent="Signing in…";
-      const {error}=await sb.auth.signInWithPassword({email,password:pw});
-      if(error){btn.disabled=false;btn.textContent="Sign in";toast("Sign-in failed: "+error.message);return;}
+      const {error}=await sb.auth.signInWithPassword({email:HR_LOGIN_EMAIL,password:pw});
+      if(error){btn.disabled=false;btn.textContent="Sign in";toast("Incorrect password");return;}
       await openDash();
     } else {
       if(document.getElementById("hrPass").value.trim()!==HR_ACCESS_CODE){toast("Incorrect access code");return;}
