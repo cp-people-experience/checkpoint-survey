@@ -368,16 +368,26 @@ body.hr-mode{
 body.hr-mode .card{border-radius:var(--r);transition:border-color .16s,box-shadow .16s,transform .16s}
 body.hr-mode .chart-card h3{letter-spacing:-.01em;font-size:14px}
 body.hr-mode .svy-card:hover,body.hr-mode .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(15,23,42,.09);border-color:var(--border2)}
-/* KPI tiles */
+/* KPI tiles — premium stat cards */
 body.hr-mode .kpis{gap:14px}
-body.hr-mode .kpi{padding:17px 18px;border-radius:var(--r)}
-body.hr-mode .kpi .k-ic{border-radius:10px;width:30px;height:30px}
-body.hr-mode .kpi .k-val{font-size:31px;letter-spacing:-.025em;font-weight:800}
-body.hr-mode .kpi .k-lbl2{letter-spacing:.02em;color:var(--text3)}
+body.hr-mode .kpi{padding:18px 18px 16px;border-radius:16px;position:relative;overflow:hidden;
+  background:linear-gradient(168deg,var(--card) 60%,var(--card2))}
+body.hr-mode .kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--cp),#f0883f)}
+body.hr-mode .kpi .k-top{margin-bottom:13px;gap:10px}
+body.hr-mode .kpi .k-ic{border-radius:11px;width:36px;height:36px;font-size:18px;box-shadow:0 2px 8px rgba(15,23,42,.06)}
+body.hr-mode .kpi .k-lbl2{letter-spacing:.03em;color:var(--text3);font-size:10.5px}
+body.hr-mode .kpi .k-val{font-size:37px;letter-spacing:-.03em;font-weight:800;line-height:1}
+body.hr-mode .kpi .k-sub{margin-top:9px;font-size:11px}
+body.hr-mode .kpi .delta{padding:2px 8px;font-size:11px}
 /* section headers */
-body.hr-mode .ov-head{margin:26px 0 13px}
-body.hr-mode .ov-head .tick{width:3px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--cp),var(--cp-d))}
-body.hr-mode .ov-head h2{font-size:15px;letter-spacing:-.015em}
+body.hr-mode .ov-head{margin:28px 0 14px}
+body.hr-mode .ov-head .tick{width:4px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--cp),var(--cp-pink))}
+body.hr-mode .ov-head h2{font-size:16px;letter-spacing:-.02em;font-weight:800}
+/* chart card headers */
+body.hr-mode .chart-card h3{font-size:14.5px;font-weight:800;letter-spacing:-.015em}
+body.hr-mode .chart-card .ch-sub{font-size:11px}
+body.hr-mode .chart-card{padding:18px 20px}
 /* segmented tabs (modern, no underline) */
 body.hr-mode .admin-tabs{border-bottom:none;gap:3px;padding:5px;background:var(--card);border:1px solid var(--border);border-radius:13px;box-shadow:var(--sh);position:sticky;top:8px;z-index:16;backdrop-filter:blur(8px)}
 body.hr-mode .admin-tab{border:1px solid transparent;border-radius:9px;padding:8px 13px;margin-bottom:0;color:var(--text3)}
@@ -392,6 +402,13 @@ body.hr-mode .insight{border-radius:var(--r)}
 body.hr-mode .kpi{position:relative}
 body.hr-mode .kpi::after{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
 @media(prefers-color-scheme:dark){body.hr-mode .kpi::after{box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}}
+
+/* preview-mode banner */
+.preview-banner{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;
+  background:var(--warn-bg);border:1px solid rgba(180,83,9,.3);color:var(--warn);
+  border-radius:12px;padding:11px 15px;margin-bottom:14px;font-size:12.5px;font-weight:600;line-height:1.4}
+.preview-banner button{background:var(--warn);color:#fff;border:none;border-radius:8px;padding:6px 13px;font-weight:700;cursor:pointer;font-size:12px;flex-shrink:0}
+.preview-banner button:hover{opacity:.9}
 
 /* responses table */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
@@ -511,6 +528,10 @@ table.data tr.clk:hover td{background:var(--cp-l)}
 
     <!-- dashboard -->
     <div id="hrDash" style="display:none">
+      <div id="previewBanner" class="preview-banner" style="display:none">
+        <span>👁 <b>Preview mode</b> — showing sample data so you can see the dashboard fully populated. Nothing here is saved to your database.</span>
+        <button onclick="togglePreview()">Exit preview</button>
+      </div>
       <div class="admin-tabs">
         <button class="admin-tab on" data-tab="overview" onclick="setTab('overview')">Overview</button>
         <button class="admin-tab" data-tab="onb30" onclick="setTab('onb30')">30-Day Onboarding</button>
@@ -530,6 +551,7 @@ table.data tr.clk:hover td{background:var(--cp-l)}
           <option value="90">Last 90 days</option><option value="180">Last 6 months</option>
         </select></div>
         <div class="spacer"></div>
+        <div class="fg"><label>&nbsp;</label><button class="btn btn-ghost btn-sm" id="previewBtn" onclick="togglePreview()">👁 Preview with sample data</button></div>
         <div class="fg"><label>&nbsp;</label><button class="btn btn-ghost btn-sm" onclick="resetFilters()">Reset filters</button></div>
       </div>
 
@@ -805,7 +827,7 @@ const LS_KEY="cp_survey_responses_v1";
 const LS_EMP="cp_survey_currentEmp_v1";
 let CACHE=[];                       // in-memory responses (source of truth in cloud mode)
 function readLocal(){try{return JSON.parse(localStorage.getItem(LS_KEY))||[]}catch(e){return[]}}
-function loadAll(){return CLOUD?CACHE:readLocal();}
+function loadAll(){return (CLOUD||PREVIEW)?CACHE:readLocal();}
 function saveAll(a){CACHE=a;if(!CLOUD)localStorage.setItem(LS_KEY,JSON.stringify(a));}
 // Older databases were created with a rule listing only onb30/onb60/exit, which
 // predates the 90-day survey. If that rule is still present we store the response
@@ -837,6 +859,54 @@ async function loadCloud(){
   const {data,error}=await sb.from("survey_responses").select("*").order("submitted_at",{ascending:false});
   if(error)throw error;
   CACHE=(data||[]).map(rowToResp);
+}
+
+/* ---- Preview mode: fill the dashboard with realistic sample data (never saved) ---- */
+let PREVIEW=false, _realCache=null;
+function _demoAnswers(key,emp,mood){
+  const rnd=a=>a[Math.floor(Math.random()*a.length)],rI=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+  const lik=g=>g>.75?rnd([7,7,7,6,6,5]):g>.5?rnd([7,6,6,5,5,4]):g>.3?rnd([6,5,4,4,3]):rnd([5,4,3,2,2,1]);
+  const ONB=["The team was very welcoming.","Setup took a bit long but was resolved.","Clear documentation helped a lot.","My manager set clear expectations.","The onboarding buddy program was great.","Some tool access was delayed.","Everything went smoothly overall.","Great support from IT.","Payroll process was a little confusing."];
+  const EXIT=["Wished for more growth opportunities.","Compensation could be more competitive.","Great people — hard to leave.","Better career prospects elsewhere.","Needed better work-life balance.","Relocating for personal reasons.","More recognition would help retention."];
+  const ans={},pool=key==="exit"?EXIT:ONB;
+  SURVEYS[key].sections.forEach(sec=>sec.questions.forEach(q=>{
+    if(q.type==="dropdown")return;
+    if(q.type==="input")ans[q.id]=q.inputType==="email"?emp.email:emp.name;
+    else if(q.type==="likert"){ans[q.id]={};q.statements.forEach((s,i)=>{let v=lik(mood);if(s.reverse)v=8-v;ans[q.id][i]=v;});}
+    else if(q.type==="stars")ans[q.id]=rI(mood>.6?3:2,5);
+    else if(q.type==="rank"){const p=[...q.options.filter(o=>o!=="Not Applicable")];ans[q.id]=[];for(let i=0;i<3;i++)ans[q.id].push(p.splice(Math.floor(Math.random()*p.length),1)[0]||"");}
+    else if(q.type==="nps")ans[q.id]=mood>.7?rI(8,10):mood>.4?rI(6,9):rI(3,7);
+    else if(q.type==="scale")ans[q.id]=mood>.7?rI(7,10):mood>.4?rI(5,8):rI(2,6);
+    else if(q.type==="text"){if(q.required||Math.random()>.5)ans[q.id]=rnd(pool);}
+  }));
+  ans.dept=emp.dept;ans.country=emp.country;ans.empName=emp.name;ans.empEmail=emp.email;return ans;
+}
+function demoResponses(){
+  const NAMES=["Aiko Tanaka","Ben Cohen","Chen Wei","David Levi","Emma Brown","Farah Khan","Grace Kim","Hiro Yamada","Ines Roy","Jonas Weber","Kavya Nair","Liam O'Neil","Maya Shapiro","Noah Fisher","Olivia Chen","Priya Das","Quinn Silva","Rina Sato","Sam Green","Tara Mizrahi","Uma Patel","Victor Hugo","Wendy Lin","Yuki Mori","Zoe Adams","Arjun Rao","Bianca Costa","Caleb Ng","Dita Sari","Ethan Park"];
+  const rnd=a=>a[Math.floor(Math.random()*a.length)],rI=(a,b)=>Math.floor(Math.random()*(b-a+1))+a,now=Date.now(),out=[];
+  NAMES.forEach((n,idx)=>{
+    const emp={name:n,email:n.toLowerCase().replace(/[^a-z]+/g,".")+"@checkpoint.com",dept:rnd(DEPTS),country:rnd(COUNTRIES)};
+    const mood=Math.random();
+    out.push({id:"demo-"+idx+"-30",surveyType:"onb30",department:emp.dept,country:emp.country,employeeName:emp.name,employeeEmail:emp.email,submittedAt:now-rI(20,150)*864e5,answers:_demoAnswers("onb30",emp,mood)});
+    if(Math.random()>.32)out.push({id:"demo-"+idx+"-90",surveyType:"onb90",department:emp.dept,country:emp.country,employeeName:emp.name,employeeEmail:emp.email,submittedAt:now-rI(3,85)*864e5,answers:_demoAnswers("onb90",emp,Math.min(1,mood+.12))});
+    if(Math.random()>.66)out.push({id:"demo-"+idx+"-x",surveyType:"exit",department:emp.dept,country:emp.country,employeeName:emp.name,employeeEmail:emp.email,submittedAt:now-rI(1,120)*864e5,answers:_demoAnswers("exit",emp,Math.random())});
+  });
+  return out;
+}
+async function togglePreview(){
+  const banner=document.getElementById("previewBanner"),btn=document.getElementById("previewBtn");
+  if(!PREVIEW){
+    _realCache=CACHE; PREVIEW=true; CACHE=demoResponses();
+    if(banner)banner.style.display="flex";
+    if(btn)btn.textContent="✕ Exit preview";
+    RESP_Q="";renderDash();
+  } else {
+    PREVIEW=false;
+    if(banner)banner.style.display="none";
+    if(btn)btn.textContent="👁 Preview with sample data";
+    if(CLOUD){ if(_realCache)CACHE=_realCache; else{try{await loadCloud();}catch(e){}} }
+    renderDash();
+  }
 }
 
 /* ---- Survey question definitions (editable by HR) ---- */
