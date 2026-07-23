@@ -188,7 +188,7 @@ img{max-width:100%}
 .admin-tab.on{color:var(--cp);border-bottom-color:var(--cp)}
 .admin-tab:hover:not(.on){color:var(--text2)}
 
-.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 16px;margin-bottom:16px;position:sticky;top:8px;z-index:15;backdrop-filter:blur(8px);background:color-mix(in srgb,var(--card) 92%,transparent)}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;padding:12px 16px;margin-bottom:16px}
 .tab-count{display:inline-block;font-size:10px;font-weight:800;background:var(--card2);border:1px solid var(--border);color:var(--text3);border-radius:20px;padding:0 6px;margin-left:5px;vertical-align:middle}
 .admin-tab.on .tab-count{background:var(--cp-l);border-color:var(--cp);color:var(--cp)}
 .filters .fg{display:flex;flex-direction:column;gap:4px}
@@ -341,6 +341,57 @@ table.data td.num{font-variant-numeric:tabular-nums}
 .qe-add:hover{border-color:var(--cp);background:var(--cp-l)}
 .qe-stmt-row{display:flex;gap:6px;margin-bottom:6px}
 .qe-stmt-row input{flex:1;padding:7px 9px;font:inherit;font-size:12.5px;border:1px solid var(--border2);border-radius:6px;background:var(--card);color:var(--text)}
+
+/* ============================================================
+   MODERN DASHBOARD THEME (scoped to HR view only)
+   Cool neutral surface + crisp cards, à la modern SaaS dashboards.
+   The survey pages keep the warm Check Point palette.
+   ============================================================ */
+body.hr-mode{
+  --bg:#f5f6f8;--card:#ffffff;--card2:#f7f9fb;
+  --text:#0f172a;--text2:#475569;--text3:#94a3b8;
+  --border:#e7eaf0;--border2:#d7dce6;
+  --r:14px;--rs:9px;
+  --sh:0 1px 2px rgba(15,23,42,.04),0 4px 14px rgba(15,23,42,.045);
+  background-color:var(--bg);
+  background-image:radial-gradient(rgba(15,23,42,.045) 1px,transparent 1px);
+  background-size:22px 22px;background-position:-1px -1px;
+}
+@media(prefers-color-scheme:dark){body.hr-mode{
+  --bg:#0a0c11;--card:#12151d;--card2:#0f131a;
+  --text:#f1f5f9;--text2:#aab3c2;--text3:#6b7688;
+  --border:#1f242f;--border2:#2b3240;
+  --sh:0 1px 2px rgba(0,0,0,.4),0 6px 18px rgba(0,0,0,.32);
+  background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);
+}}
+/* cards */
+body.hr-mode .card{border-radius:var(--r);transition:border-color .16s,box-shadow .16s,transform .16s}
+body.hr-mode .chart-card h3{letter-spacing:-.01em;font-size:14px}
+body.hr-mode .svy-card:hover,body.hr-mode .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 26px rgba(15,23,42,.09);border-color:var(--border2)}
+/* KPI tiles */
+body.hr-mode .kpis{gap:14px}
+body.hr-mode .kpi{padding:17px 18px;border-radius:var(--r)}
+body.hr-mode .kpi .k-ic{border-radius:10px;width:30px;height:30px}
+body.hr-mode .kpi .k-val{font-size:31px;letter-spacing:-.025em;font-weight:800}
+body.hr-mode .kpi .k-lbl2{letter-spacing:.02em;color:var(--text3)}
+/* section headers */
+body.hr-mode .ov-head{margin:26px 0 13px}
+body.hr-mode .ov-head .tick{width:3px;height:18px;border-radius:3px;background:linear-gradient(180deg,var(--cp),var(--cp-d))}
+body.hr-mode .ov-head h2{font-size:15px;letter-spacing:-.015em}
+/* segmented tabs (modern, no underline) */
+body.hr-mode .admin-tabs{border-bottom:none;gap:3px;padding:5px;background:var(--card);border:1px solid var(--border);border-radius:13px;box-shadow:var(--sh);position:sticky;top:8px;z-index:16;backdrop-filter:blur(8px)}
+body.hr-mode .admin-tab{border:1px solid transparent;border-radius:9px;padding:8px 13px;margin-bottom:0;color:var(--text3)}
+body.hr-mode .admin-tab:hover:not(.on){background:var(--card2);color:var(--text2)}
+body.hr-mode .admin-tab.on{background:var(--cp);border-color:var(--cp);color:#fff;box-shadow:0 2px 8px rgba(214,65,15,.28)}
+body.hr-mode .admin-tab.on .tab-count{background:rgba(255,255,255,.24);border-color:transparent;color:#fff}
+/* filter bar (not sticky — avoids overlapping the cards below) */
+body.hr-mode .filters{border-radius:var(--r);box-shadow:var(--sh)}
+body.hr-mode .filters select{border-radius:var(--rs)}
+/* insight & strengths cards get a hairline top accent */
+body.hr-mode .insight{border-radius:var(--r)}
+body.hr-mode .kpi{position:relative}
+body.hr-mode .kpi::after{content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+@media(prefers-color-scheme:dark){body.hr-mode .kpi::after{box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}}
 
 /* responses table */
 .tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)}
@@ -1825,7 +1876,7 @@ const PAL={
     likert:["#9ec5f4","#5598e7","#2a78d6","#6b6a64","#c23b3b","#e66767","#f0b4b4"],
     cat:{onb30:"#3987e5",onb90:"#199e70",exit:"#c98500"},
     seq:["#0d366b","#184f95","#256abf","#3987e5","#6da7ec","#9ec5f4","#cde2fb"],
-    grid:"#2c2c2a", ink:"#898781", surface:"#211a16"
+    grid:"#252b36", ink:"#7c8698", surface:"#12151d"   // matches the modern dark card
   }
 };
 function isDarkMode(){return matchMedia("(prefers-color-scheme:dark)").matches;}
@@ -1838,7 +1889,7 @@ const centreTotal={id:"centreTotal",afterDraw(c,args,o){
   const {ctx,chartArea}=c;if(!chartArea)return;
   const x=(chartArea.left+chartArea.right)/2, y=(chartArea.top+chartArea.bottom)/2;
   ctx.save();ctx.textAlign="center";ctx.textBaseline="middle";
-  ctx.fillStyle=isDarkMode()?"#f5f0ec":"#1c1917";
+  ctx.fillStyle=isDarkMode()?"#f1f5f9":"#0f172a";
   ctx.font='800 26px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
   ctx.fillText(String(t),x,y-6);
   ctx.fillStyle=P().ink;ctx.font='600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
@@ -1851,8 +1902,8 @@ function gridColor(){return P().grid;}
    hairline solid grid; text always in ink tokens, never the series colour. */
 const TICK={size:10}, LBL={size:11};
 function tipOpts(){const d=isDarkMode();return {
-  backgroundColor:d?"#2b2320":"#ffffff", titleColor:d?"#f5f0ec":"#1c1917", bodyColor:d?"#c4bab2":"#57534e",
-  borderColor:d?"rgba(255,255,255,.14)":"rgba(0,0,0,.10)", borderWidth:1,
+  backgroundColor:d?"#1a1e27":"#ffffff", titleColor:d?"#f1f5f9":"#0f172a", bodyColor:d?"#aab3c2":"#475569",
+  borderColor:d?"rgba(255,255,255,.12)":"rgba(15,23,42,.10)", borderWidth:1,
   padding:10, cornerRadius:8, boxPadding:5, usePointStyle:true, titleFont:{size:12,weight:"700"}, bodyFont:{size:12}
 };}
 function legendOpts(){return {display:true,position:"bottom",labels:{color:axisColor(),font:LBL,boxWidth:9,boxHeight:9,usePointStyle:true,pointStyle:"circle",padding:14}};}
